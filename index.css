@@ -1,1 +1,284 @@
-/* Global styles are defined inline in index.html (Tailwind CDN + CSS variables). */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   Theme tokens (light default + dark) — consumed by tailwind gemini.* colors
+   ========================================================================== */
+:root {
+  --gemini-bg: #FFFFFF;
+  --gemini-surface: #F8F9FA;
+  --gemini-header: rgba(255, 255, 255, 0.8);
+  --gemini-sidebar: #FFFFFF;
+  --gemini-border: rgba(0, 0, 0, 0.1);
+  --gemini-text: #171717;
+  --gemini-dim: #525252;
+  --gemini-accent: #000000;
+  --gemini-warning-bg: #FFFBEB;
+  --gemini-warning-border: #FEF3C7;
+  --gemini-warning-text: #B45309;
+  --gemini-danger-bg: #FEF2F2;
+  --gemini-danger-text: #DC2626;
+
+  /* Accessibility scale defaults */
+  --app-font-scale: 1;
+  --app-line-height: 1.5;
+  --app-letter-spacing: 0;
+}
+
+.dark {
+  --gemini-bg: #0A0A0B;
+  --gemini-surface: #121214;
+  --gemini-header: rgba(10, 10, 11, 0.8);
+  --gemini-sidebar: #0A0A0B;
+  --gemini-border: rgba(255, 255, 255, 0.1);
+  --gemini-text: #F5F5F5;
+  --gemini-dim: #A3A3A3;
+  --gemini-accent: #FFFFFF;
+  --gemini-warning-bg: rgba(245, 158, 11, 0.1);
+  --gemini-warning-border: rgba(245, 158, 11, 0.2);
+  --gemini-warning-text: #FBBF24;
+  --gemini-danger-bg: rgba(239, 68, 68, 0.1);
+  --gemini-danger-text: #F87171;
+}
+
+/* Mode Contraste Élevé */
+.mode-contrast {
+  --gemini-bg: #000000 !important;
+  --gemini-surface: #000000 !important;
+  --gemini-header: #000000 !important;
+  --gemini-sidebar: #000000 !important;
+  --gemini-border: #FFFFFF !important;
+  --gemini-text: #FFFFFF !important;
+  --gemini-dim: #FFFF00 !important;
+  --gemini-accent: #00FFFF !important;
+  --gemini-warning-bg: #000000 !important;
+  --gemini-warning-border: #FFFF00 !important;
+  --gemini-warning-text: #FFFF00 !important;
+  --gemini-danger-bg: #000000 !important;
+  --gemini-danger-text: #FF0000 !important;
+}
+.mode-contrast .border {
+  border-width: 2px !important;
+}
+
+/* Mode Dyslexie */
+.mode-dyslexia * {
+  font-family: 'Comic Sans MS', 'Chalkboard SE', 'Inter', sans-serif !important;
+}
+.mode-dyslexia p,
+.mode-dyslexia h1,
+.mode-dyslexia h2,
+.mode-dyslexia h3,
+.mode-dyslexia span {
+  letter-spacing: 0.05em !important;
+  line-height: 2 !important;
+}
+
+/* Application des variables de taille */
+html {
+  font-size: calc(16px * var(--app-font-scale));
+}
+body {
+  background-color: var(--gemini-bg);
+  color: var(--gemini-text);
+  overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  line-height: var(--app-line-height);
+  letter-spacing: calc(1em * var(--app-letter-spacing));
+}
+
+/* Réduire les animations */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Souligner les liens */
+.mode-links a,
+.mode-links button {
+  text-decoration: underline !important;
+  text-decoration-thickness: 2px !important;
+}
+
+/* Custom styles for model-viewer */
+model-viewer {
+  width: 100%;
+  height: 400px;
+  background-color: transparent;
+  --poster-color: transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--gemini-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gemini-border);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gemini-dim);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Premium Markdown (Prose) Theme */
+.prose-gemini {
+  line-height: 1.75;
+  font-size: 1.05rem;
+  max-width: 68ch; /* Optimal reading width */
+}
+
+.prose-gemini h1,
+.prose-gemini h2,
+.prose-gemini h3,
+.prose-gemini h4 {
+  color: var(--gemini-accent);
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.prose-gemini h1 {
+  font-size: 2.5em;
+  margin-top: 1.5em;
+  margin-bottom: 0.8em;
+}
+
+.prose-gemini h2 {
+  font-size: 1.75em;
+  margin-top: 2em;
+  margin-bottom: 0.8em;
+  padding-bottom: 0.4em;
+  border-bottom: 1px solid var(--gemini-border);
+}
+
+.prose-gemini h3 {
+  font-size: 1.4em;
+  margin-top: 1.5em;
+  margin-bottom: 0.6em;
+}
+
+.prose-gemini p {
+  margin-bottom: 1.5em;
+  color: var(--gemini-dim);
+  font-weight: 300;
+}
+
+.prose-gemini strong {
+  color: var(--gemini-accent);
+  font-weight: 600;
+}
+
+.prose-gemini ul {
+  list-style-type: none;
+  margin-bottom: 1.5em;
+  padding-left: 0.5em;
+}
+
+.prose-gemini ul li {
+  position: relative;
+  padding-left: 1.5em;
+  margin-bottom: 0.75em;
+  color: var(--gemini-dim);
+}
+
+.prose-gemini ul li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.6em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--gemini-accent);
+  opacity: 0.5;
+}
+
+.prose-gemini ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+  margin-bottom: 1.5em;
+  color: var(--gemini-dim);
+}
+
+.prose-gemini ol li {
+  margin-bottom: 0.75em;
+  padding-left: 0.5em;
+}
+
+.prose-gemini ol li::marker {
+  color: var(--gemini-accent);
+  font-weight: 600;
+  font-family: 'Outfit', sans-serif;
+}
+
+.prose-gemini a {
+  color: var(--gemini-accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--gemini-dim);
+  transition: border-color 0.2s;
+}
+
+.prose-gemini a:hover {
+  border-bottom-color: var(--gemini-accent);
+}
+
+.prose-gemini code {
+  background: var(--gemini-surface);
+  border: 1px solid var(--gemini-border);
+  padding: 0.2em 0.4em;
+  border-radius: 6px;
+  font-size: 0.85em;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+  color: var(--gemini-accent);
+}
+
+.prose-gemini pre {
+  background: #0d0d0d;
+  padding: 1.5em;
+  border-radius: 16px;
+  border: 1px solid var(--gemini-border);
+  overflow-x: auto;
+  margin-bottom: 2em;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.prose-gemini pre code {
+  background: transparent;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  font-size: 0.9em;
+  color: inherit;
+}
+
+.prose-gemini blockquote {
+  border-left: 4px solid var(--gemini-accent);
+  padding: 1em 1.5em;
+  color: var(--gemini-text);
+  margin: 2em 0;
+  background: linear-gradient(90deg, var(--gemini-surface) 0%, transparent 100%);
+  border-radius: 0 16px 16px 0;
+  font-style: italic;
+}
+
+/* Math (KaTeX) */
+.katex {
+  font-size: 1.1em;
+}
