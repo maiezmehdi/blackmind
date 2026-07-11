@@ -336,11 +336,13 @@ const CreatePage: React.FC<CreatePageProps> = () => {
     }
   }, [showSaveIndicator, lastSaved]);
 
+  const appliedRemixIdRef = useRef<string | null>(null);
   useEffect(() => {
     const remixId = searchParams.get('remixId');
-    if (remixId && courses.length > 0) {
+    if (remixId && remixId !== appliedRemixIdRef.current && courses.length > 0) {
       const courseToRemix = courses.find(c => c.id === remixId);
       if (courseToRemix) {
+        appliedRemixIdRef.current = remixId; // avoid duplicate welcome on auto-save re-renders
         setGeneratedCourse(courseToRemix);
         setMessages(prev => [...prev, { role: 'assistant', content: t('create.remixActivated', { title: courseToRemix.title }) }]);
       }
