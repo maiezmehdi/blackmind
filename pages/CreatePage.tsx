@@ -622,16 +622,24 @@ const CreatePage: React.FC<CreatePageProps> = () => {
         // (async, non-blocking — the placeholder stays until the image lands).
         const coverPrompt = `Couverture de cours en ligne : "${newCourse.title}". ${newCourse.description || activePrompt}`;
         setIsGeneratingCover(true);
+        const setCover = (src: string) =>
+          setGeneratedCourse(prev => (prev && prev.id === newCourse.id ? { ...prev, image: src } : prev));
         const applyCover = (img: any) => {
-          // Real AI image (data: URL) when available; otherwise a unique
-          // on-brand gradient generated locally (works without image quota).
-          const cover = typeof img === 'string' && img.startsWith('data:') ? img : makeGradientCover(newCourse.title);
-          setGeneratedCourse(prev => (prev && prev.id === newCourse.id ? { ...prev, image: cover } : prev));
+          if (typeof img === 'string' && img) {
+            // Verify the image (Gemini data URL or free Pollinations URL) really
+            // loads; fall back to a unique on-brand gradient if it doesn't.
+            const test = new Image();
+            test.onload = () => { setCover(img); setIsGeneratingCover(false); };
+            test.onerror = () => { setCover(makeGradientCover(newCourse.title)); setIsGeneratingCover(false); };
+            test.src = img;
+          } else {
+            setCover(makeGradientCover(newCourse.title));
+            setIsGeneratingCover(false);
+          }
         };
         generateAiBlock('image', coverPrompt, { aspectRatio: '16:9' })
           .then(applyCover)
-          .catch(() => applyCover(null))
-          .finally(() => setIsGeneratingCover(false));
+          .catch(() => applyCover(null));
       }
     } catch (err: any) {
       setError("Erreur de génération.");

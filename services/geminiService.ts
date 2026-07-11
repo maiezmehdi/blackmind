@@ -4,6 +4,16 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 2000;
 
+// Free, keyless image generation (Pollinations / Flux). Used when the Gemini
+// image models aren't available (e.g. free tier has a 0 image quota). Returns
+// a URL that renders the generated image directly in an <img>.
+export const freeImageUrl = (prompt: string, w = 1280, h = 720): string => {
+  const clean = (prompt || 'abstract').replace(/\s+/g, ' ').trim().slice(0, 320);
+  let seed = 0;
+  for (let i = 0; i < clean.length; i++) seed = (seed * 31 + clean.charCodeAt(i)) >>> 0;
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(clean)}?width=${w}&height=${h}&nologo=true&model=flux&seed=${seed}`;
+};
+
 async function callWithRetry<T>(fn: () => Promise<T>, retries = MAX_RETRIES, delay = INITIAL_RETRY_DELAY): Promise<T> {
   try {
     return await fn();
@@ -237,7 +247,8 @@ export const generateAiBlock = async (type: string, prompt: string, options: any
         for (const part of response.candidates?.[0]?.content?.parts || []) {
           if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
         }
-        throw new Error('No image data');
+        // No inline image (e.g. tier restriction) → free keyless generator
+        return freeImageUrl(prompt);
       }
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -285,7 +296,9 @@ export const generateAiBlock = async (type: string, prompt: string, options: any
     });
   } catch (error: any) {
     console.error(`[geminiService] ${type} generation failed:`, error?.message || error);
-    if (type === 'image') return "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80&w=800";
+    // Fall back to the free keyless image generator so covers/illustrations
+    // still work without a billed Gemini image quota.
+    if (type === 'image') return freeImageUrl(prompt);
     return "Contenu indisponible.";
   }
 };
