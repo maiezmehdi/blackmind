@@ -96,6 +96,7 @@ import {
 import { marked } from 'marked';
 import { generateCourseStructure, generateStorytellingStructure, refineContent, generateAiBlock, generateSpeech } from '../services/geminiService';
 import { exportCoursePdf, exportCourseDocx } from '../services/exportService';
+import { makeGradientCover } from '../services/coverImage';
 import { connectLiveAssistant, decode, decodeAudioData } from '../services/liveService';
 import { Course, Module, Lesson, ContentBlock, BlockType, UserProfile, WorkspaceMember } from '../types';
 import { useCourseContext } from '../store/useCourseStore';
@@ -621,15 +622,15 @@ const CreatePage: React.FC<CreatePageProps> = () => {
         // (async, non-blocking — the placeholder stays until the image lands).
         const coverPrompt = `Couverture de cours en ligne : "${newCourse.title}". ${newCourse.description || activePrompt}`;
         setIsGeneratingCover(true);
+        const applyCover = (img: any) => {
+          // Real AI image (data: URL) when available; otherwise a unique
+          // on-brand gradient generated locally (works without image quota).
+          const cover = typeof img === 'string' && img.startsWith('data:') ? img : makeGradientCover(newCourse.title);
+          setGeneratedCourse(prev => (prev && prev.id === newCourse.id ? { ...prev, image: cover } : prev));
+        };
         generateAiBlock('image', coverPrompt, { aspectRatio: '16:9' })
-          .then((img: any) => {
-            // Only apply a genuine AI image (data: URL); on failure generateAiBlock
-            // returns a stock URL — keep the default rather than masking the error.
-            if (typeof img === 'string' && img.startsWith('data:')) {
-              setGeneratedCourse(prev => (prev && prev.id === newCourse.id ? { ...prev, image: img } : prev));
-            }
-          })
-          .catch(() => { /* keep placeholder cover */ })
+          .then(applyCover)
+          .catch(() => applyCover(null))
           .finally(() => setIsGeneratingCover(false));
       }
     } catch (err: any) {

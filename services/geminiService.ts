@@ -37,13 +37,20 @@ async function callWithRetry<T>(fn: () => Promise<T>, retries = MAX_RETRIES, del
       error?.error?.code === 429 ||
       error?.error?.status === 'RESOURCE_EXHAUSTED';
 
-    const isInternalError = 
-      error?.status === 500 || 
-      errorString.includes('500') || 
+    const isInternalError =
+      error?.status === 500 ||
+      errorString.includes('500') ||
       errorString.includes('INTERNAL') ||
       errorString.includes('overloaded');
-    
-    if (retries > 0 && (isRateLimit || isInternalError)) {
+
+    // A hard quota (free tier has limit: 0 for a model) will never recover on
+    // retry — fail fast instead of hammering the API and spamming the console.
+    const isHardQuota =
+      errorString.includes('"limit":0') ||
+      errorString.includes('limit: 0') ||
+      errorString.includes('free_tier');
+
+    if (retries > 0 && !isHardQuota && (isRateLimit || isInternalError)) {
       await new Promise(resolve => setTimeout(resolve, delay));
       const nextDelay = delay * 2 + Math.floor(Math.random() * 500);
       return callWithRetry(fn, retries - 1, nextDelay);
