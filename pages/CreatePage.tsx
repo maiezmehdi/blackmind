@@ -95,6 +95,7 @@ import {
 } from 'lucide-react';
 import { marked } from 'marked';
 import { generateCourseStructure, generateStorytellingStructure, refineContent, generateAiBlock, generateSpeech } from '../services/geminiService';
+import { exportCoursePdf, exportCourseDocx } from '../services/exportService';
 import { connectLiveAssistant, decode, decodeAudioData } from '../services/liveService';
 import { Course, Module, Lesson, ContentBlock, BlockType, UserProfile, WorkspaceMember } from '../types';
 import { useCourseContext } from '../store/useCourseStore';
@@ -257,6 +258,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+  const [exportingFormat, setExportingFormat] = useState<'pdf' | 'docx' | null>(null);
   const [isSellModalOpen, setIsSellModalOpen] = useState(false);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   
@@ -614,6 +616,17 @@ const CreatePage: React.FC<CreatePageProps> = () => {
         setGeneratedCourse(newCourse);
         setIsPublished(false);
         setMessages(prev => [...prev, { role: 'assistant', content: commentary, suggestions: [...(suggestions || []), "__ACTION_PREVIEW__"], timestamp: new Date() }]);
+
+        // Generate the course cover right away from the generated content
+        // (async, non-blocking — the placeholder stays until the image lands).
+        const coverPrompt = `Couverture de cours en ligne : "${newCourse.title}". ${newCourse.description || activePrompt}`;
+        generateAiBlock('image', coverPrompt, { aspectRatio: '16:9' })
+          .then((img: any) => {
+            if (typeof img === 'string' && img) {
+              setGeneratedCourse(prev => (prev && prev.id === newCourse.id ? { ...prev, image: img } : prev));
+            }
+          })
+          .catch(() => { /* keep placeholder cover */ });
       }
     } catch (err: any) {
       setError("Erreur de génération.");
@@ -1154,6 +1167,20 @@ const CreatePage: React.FC<CreatePageProps> = () => {
     return colors[hash % colors.length];
   };
 
+  const handleExportCourse = async (format: 'pdf' | 'docx') => {
+    if (!generatedCourse || exportingFormat) return;
+    setExportingFormat(format);
+    try {
+      if (format === 'pdf') await exportCoursePdf(generatedCourse);
+      else await exportCourseDocx(generatedCourse);
+      setIsDownloadModalOpen(false);
+    } catch (e) {
+      console.error('Export failed', e);
+    } finally {
+      setExportingFormat(null);
+    }
+  };
+
   // Toggle Live Assist with user gesture handling
   const handleMicClick = async () => {
     if (!isLiveMode) {
@@ -1479,13 +1506,21 @@ const CreatePage: React.FC<CreatePageProps> = () => {
               <p className="text-gemini-dim text-sm">{t('create.exportDesc')}</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <button className="flex flex-col items-center gap-3 p-6 rounded-[2rem] border border-gemini-border hover:border-gemini-accent hover:bg-gemini-accent/5 transition-all group">
-                <FileText size={32} className="text-gemini-dim group-hover:text-gemini-accent" />
-                <span className="font-black text-[10px] uppercase tracking-[0.2em] text-gemini-dim group-hover:text-gemini-accent">Format PDF</span>
+              <button
+                onClick={() => handleExportCourse('pdf')}
+                disabled={!!exportingFormat}
+                className="flex flex-col items-center gap-3 p-6 rounded-[2rem] border border-gemini-border hover:border-gemini-accent hover:bg-gemini-accent/5 transition-all group disabled:opacity-50"
+              >
+                {exportingFormat === 'pdf' ? <Loader2 size={32} className="animate-spin text-gemini-accent" /> : <FileText size={32} className="text-gemini-dim group-hover:text-gemini-accent" />}
+                <span className="font-black text-[10px] uppercase tracking-[0.2em] text-gemini-dim group-hover:text-gemini-accent">{exportingFormat === 'pdf' ? t('create.exporting') : 'Format PDF'}</span>
               </button>
-              <button className="flex flex-col items-center gap-3 p-6 rounded-[2rem] border border-gemini-border hover:border-gemini-accent hover:bg-gemini-accent/5 transition-all group">
-                <Layout size={32} className="text-gemini-dim group-hover:text-gemini-accent" />
-                <span className="font-black text-[10px] uppercase tracking-[0.2em] text-gemini-dim group-hover:text-gemini-accent">Format DOCX</span>
+              <button
+                onClick={() => handleExportCourse('docx')}
+                disabled={!!exportingFormat}
+                className="flex flex-col items-center gap-3 p-6 rounded-[2rem] border border-gemini-border hover:border-gemini-accent hover:bg-gemini-accent/5 transition-all group disabled:opacity-50"
+              >
+                {exportingFormat === 'docx' ? <Loader2 size={32} className="animate-spin text-gemini-accent" /> : <Layout size={32} className="text-gemini-dim group-hover:text-gemini-accent" />}
+                <span className="font-black text-[10px] uppercase tracking-[0.2em] text-gemini-dim group-hover:text-gemini-accent">{exportingFormat === 'docx' ? t('create.exporting') : 'Format DOCX'}</span>
               </button>
             </div>
           </div>
@@ -1615,7 +1650,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
           
           <button onClick={() => setIsActionMenuOpen(!isActionMenuOpen)} className="p-2.5 bg-gemini-surface border border-gemini-border hover:border-gemini-text text-gemini-text rounded-full transition-all flex items-center gap-2 shadow-lg"><MoreHorizontal size={20} /></button>
           {isActionMenuOpen && (
-            <div className="absolute right-0 top-12 w-72 bg-gemini-surface border border-gemini-border rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200 divide-y divide-gemini-border">
+            <div className="absolute right-0 top-12 w-80 max-w-[calc(100vw-2rem)] bg-gemini-surface border border-gemini-border rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200 divide-y divide-gemini-border">
               <div className="py-2">
                 <button onClick={handlePublish} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-text bg-gemini-surface/50"><Rocket size={16} /> PUBLIER</button>
               </div>
@@ -1625,12 +1660,11 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                 <button onClick={() => { setIsEmailModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-dim hover:text-gemini-text"><Mail size={16} /> ENVOYER PAR EMAIL</button>
               </div>
               <div className="py-1">
-                 <button onClick={() => { setIsDownloadModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-gemini-dim hover:text-gemini-text group relative">
-                  <div className="flex items-center gap-3"><FileDown size={16} /> TÉLÉCHARGER LE COURS</div>
-                  <div className="flex gap-2 text-[9px] opacity-60">
-                    <span className="hover:text-gemini-accent">PDF</span>
-                    <span>•</span>
-                    <span className="hover:text-gemini-accent">DOCX</span>
+                 <button onClick={() => { setIsDownloadModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-gemini-dim hover:text-gemini-text group relative">
+                  <div className="flex items-center gap-3 whitespace-nowrap min-w-0"><FileDown size={16} className="shrink-0" /> <span className="truncate">TÉLÉCHARGER LE COURS</span></div>
+                  <div className="flex items-center gap-2 text-[9px] shrink-0 whitespace-nowrap">
+                    <span onClick={(e) => { e.stopPropagation(); setIsActionMenuOpen(false); handleExportCourse('pdf'); }} className="px-1.5 py-0.5 rounded border border-gemini-border hover:border-gemini-accent hover:text-gemini-accent transition-colors">PDF</span>
+                    <span onClick={(e) => { e.stopPropagation(); setIsActionMenuOpen(false); handleExportCourse('docx'); }} className="px-1.5 py-0.5 rounded border border-gemini-border hover:border-gemini-accent hover:text-gemini-accent transition-colors">DOCX</span>
                   </div>
                 </button>
                 <button onClick={() => { setIsSellModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-dim hover:text-gemini-text"><Store size={16} /> VENDRE (MARKETPLACE)</button>

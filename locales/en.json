@@ -266,7 +266,8 @@
     "customOption": "Custom option",
     "liveStart": "Create by voice (voice mode)",
     "liveStop": "Stop voice mode",
-    "analyzing": "Blackmind AI is analyzing the data in depth..."
+    "analyzing": "Blackmind AI is analyzing the data in depth...",
+    "exporting": "Generating..."
   },
   "learn": {
     "loading": "Loading your course...",

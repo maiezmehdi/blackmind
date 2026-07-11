@@ -12,6 +12,8 @@
   "dependencies": {
     "@google/genai": "^1.41.0",
     "date-fns": "^4.1.0",
+    "docx": "^9.7.1",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.564.0",
     "marked": "^15.0.0",
     "ogl": "1.0.11",

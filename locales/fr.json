@@ -287,7 +287,8 @@
     "customOption": "Option personnalisée",
     "liveStart": "Créer à la voix (mode vocal)",
     "liveStop": "Arrêter le mode vocal",
-    "analyzing": "Blackmind AI analyse les données en profondeur..."
+    "analyzing": "Blackmind AI analyse les données en profondeur...",
+    "exporting": "Génération..."
   },
   "learn": {
     "loading": "Chargement de votre cours...",
