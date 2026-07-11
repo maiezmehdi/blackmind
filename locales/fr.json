@@ -83,7 +83,8 @@
     "modulesCount": "module(s)",
     "completed": "complété",
     "modulesCountPlural": "modules",
-    "modulesCountSingular": "module"
+    "modulesCountSingular": "module",
+    "suggestPrefill": "Crée un cours complet et structuré sur : {title}"
   },
   "progress": {
     "title": "Progression",

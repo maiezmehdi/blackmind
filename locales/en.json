@@ -49,7 +49,8 @@
     "modulesCount": "module(s)",
     "completed": "completed",
     "modulesCountPlural": "modules",
-    "modulesCountSingular": "module"
+    "modulesCountSingular": "module",
+    "suggestPrefill": "Create a complete, structured course about: {title}"
   },
   "progress": {
     "title": "My Progress",

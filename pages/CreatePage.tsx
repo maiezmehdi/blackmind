@@ -347,6 +347,16 @@ const CreatePage: React.FC<CreatePageProps> = () => {
     }
   }, [searchParams, courses]);
 
+  // Pre-fill the prompt from the Home hero / discovery cards (?prompt=...)
+  useEffect(() => {
+    const initialPrompt = searchParams.get('prompt');
+    if (initialPrompt) {
+      setPrompt(initialPrompt);
+    }
+    // Only on first mount / when the query param changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   useEffect(() => {
     if (canvasRef.current && (window as any).renderMathInElement) {
       setTimeout(() => {

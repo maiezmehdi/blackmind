@@ -27,11 +27,10 @@ const ArIcon = ({ size = 12, className = "" }: { size?: number, className?: stri
   </svg>
 );
 
-const CourseCard = ({ course, onDelete, labelStart, labelContinue, t }: any) => {
-  const navigate = useNavigate();
+const CourseCard = ({ course, onDelete, labelStart, labelContinue, t, to }: any) => {
   // Check if any lesson contains an AR block
-  const hasAr = course.modules?.some((m: any) => 
-    m.lessons?.some((l: any) => 
+  const hasAr = course.modules?.some((m: any) =>
+    m.lessons?.some((l: any) =>
       l.content?.some((b: any) => b.type === 'ar')
     )
   );
@@ -41,8 +40,8 @@ const CourseCard = ({ course, onDelete, labelStart, labelContinue, t }: any) => 
   };
 
   return (
-    <Link 
-      to={`/learn/${course.id}`}
+    <Link
+      to={to || `/learn/${course.id}`}
       className="glass-card rounded-2xl overflow-hidden group hover:bg-gemini-surface transition-all duration-300 relative border border-gemini-border bg-gemini-surface/50 shadow-sm flex flex-col h-full"
     >
       <div className="h-40 overflow-hidden relative">
@@ -104,8 +103,21 @@ const CourseCard = ({ course, onDelete, labelStart, labelContinue, t }: any) => 
 const HomePage: React.FC = () => {
   const { language, t } = useLanguage();
   const { courses, deleteCourse } = useCourseContext();
+  const navigate = useNavigate();
   const heroRef = useRef<HTMLDivElement>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [heroPrompt, setHeroPrompt] = useState('');
+
+  // Send the user's typed intent to the Create page (pre-fills the AI chat).
+  const goCreate = (prompt?: string) => {
+    const text = (prompt ?? heroPrompt).trim();
+    navigate(text ? `/create?prompt=${encodeURIComponent(text)}` : '/create');
+  };
+
+  // Discovery cards represent courses that don't exist yet — clicking one
+  // starts a generation for that topic instead of leading to a dead link.
+  const suggestLink = (title: string) =>
+    `/create?prompt=${encodeURIComponent(t('home.suggestPrefill', { title }))}`;
 
   const categories = [
     { icon: Code, label: t('categories.dev') },
@@ -198,15 +210,18 @@ const HomePage: React.FC = () => {
           
           <div className="relative flex items-center bg-gemini-surface/90 backdrop-blur-xl border border-gemini-border rounded-full p-2 pl-6 shadow-2xl focus-within:border-indigo-500/50 transition-all duration-300 hover:scale-[1.01] focus-within:scale-[1.01]">
             <Search className="text-gemini-dim mr-4 shrink-0 group-focus-within/search:text-indigo-500 transition-colors" size={20} />
-            <input 
-              type="text" 
+            <input
+              type="text"
+              value={heroPrompt}
+              onChange={(e) => setHeroPrompt(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') goCreate(); }}
               placeholder={t('home.searchPlaceholder')}
               className="bg-transparent border-none outline-none flex-1 min-w-0 text-xs md:text-lg py-2 md:py-3 text-gemini-text placeholder:text-gray-500 dark:placeholder:text-gray-400"
             />
-            <Link to="/create" className="shrink-0 bg-gemini-accent text-gemini-bg hover:text-white p-3 rounded-full transition-all duration-200 shadow-lg flex items-center gap-2 transform hover:scale-105 active:scale-95 hover:bg-gradient-to-r hover:from-indigo-600 hover:to-purple-600">
+            <button type="button" onClick={() => goCreate()} className="shrink-0 bg-gemini-accent text-gemini-bg hover:text-white p-3 rounded-full transition-all duration-200 shadow-lg flex items-center gap-2 transform hover:scale-105 active:scale-95 hover:bg-gradient-to-r hover:from-indigo-600 hover:to-purple-600">
               <Sparkles size={20} />
               <span className="hidden md:inline pr-2 font-bold uppercase tracking-widest text-[11px]">{t('home.generateBtn')}</span>
-            </Link>
+            </button>
           </div>
         </div>
       </section>
@@ -253,8 +268,9 @@ const HomePage: React.FC = () => {
                 <div className="absolute -top-3 left-4 z-10 bg-gemini-bg/95 backdrop-blur-md border border-gemini-accent/30 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest text-gemini-accent shadow-lg flex items-center gap-1.5 transform group-hover:-translate-y-1 transition-transform">
                   <Sparkles size={10} /> {t('home.because')} {course.aiReason}
                 </div>
-                <CourseCard 
-                  course={course} 
+                <CourseCard
+                  course={course}
+                  to={suggestLink(course.title)}
                   labelContinue={t('home.continue')}
                   labelStart={t('home.start')}
                   t={t}
@@ -288,9 +304,9 @@ const HomePage: React.FC = () => {
           <button className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim hover:text-gemini-accent transition-colors">{t('home.seeAll')}</button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80">
-          <CourseCard t={t} labelContinue={t('home.continue')} labelStart={t('home.start')} course={{id: 'p1', title: 'Maîtriser le Prompt Engineering', author: 'Gemini Expert', category: 'IA', progress: 0}} />
-          <CourseCard t={t} labelContinue={t('home.continue')} labelStart={t('home.start')} course={{id: 'p2', title: 'Design Thinking pour Développeurs', author: 'UX Collective', category: 'Design', progress: 0}} />
-          <CourseCard t={t} labelContinue={t('home.continue')} labelStart={t('home.start')} course={{id: 'p3', title: 'Introduction à React 19', author: 'Frontend Masters', category: 'Dev', progress: 0}} />
+          <CourseCard t={t} to={suggestLink('Maîtriser le Prompt Engineering')} labelContinue={t('home.continue')} labelStart={t('home.start')} course={{id: 'p1', title: 'Maîtriser le Prompt Engineering', author: 'Gemini Expert', category: 'IA', progress: 0}} />
+          <CourseCard t={t} to={suggestLink('Design Thinking pour Développeurs')} labelContinue={t('home.continue')} labelStart={t('home.start')} course={{id: 'p2', title: 'Design Thinking pour Développeurs', author: 'UX Collective', category: 'Design', progress: 0}} />
+          <CourseCard t={t} to={suggestLink('Introduction à React 19')} labelContinue={t('home.continue')} labelStart={t('home.start')} course={{id: 'p3', title: 'Introduction à React 19', author: 'Frontend Masters', category: 'Dev', progress: 0}} />
         </div>
       </section>
     </div>
