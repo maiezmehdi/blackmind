@@ -11,8 +11,11 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        // Qwen (OpenAI-compatible) — endpoint & model configurable so the same
+        // code works with DashScope, OpenRouter or SiliconFlow.
+        'process.env.QWEN_API_KEY': JSON.stringify(env.QWEN_API_KEY),
+        'process.env.QWEN_BASE_URL': JSON.stringify(env.QWEN_BASE_URL || 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1'),
+        'process.env.QWEN_MODEL': JSON.stringify(env.QWEN_MODEL || 'qwen-plus'),
       },
       resolve: {
         alias: {

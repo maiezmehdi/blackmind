@@ -1,12 +1,16 @@
+// Text generation via Qwen through an OpenAI-compatible Chat Completions API.
+// Endpoint and model are configurable (DashScope / OpenRouter / SiliconFlow…)
+// via env, so no code change is needed to switch provider.
 
-import { GoogleGenAI, Type, Modality } from "@google/genai";
+const QWEN_KEY = process.env.QWEN_API_KEY || '';
+const QWEN_BASE = (process.env.QWEN_BASE_URL || 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1').replace(/\/$/, '');
+const QWEN_MODEL = process.env.QWEN_MODEL || 'qwen-plus';
 
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 2000;
 
-// Free, keyless image generation (Pollinations / Flux). Used when the Gemini
-// image models aren't available (e.g. free tier has a 0 image quota). Returns
-// a URL that renders the generated image directly in an <img>.
+// Free, keyless image generation (Pollinations / Flux). Renders directly in an
+// <img>, so no billing is needed for course covers / illustrations.
 export const freeImageUrl = (prompt: string, w = 1280, h = 720): string => {
   const clean = (prompt || 'abstract').replace(/\s+/g, ' ').trim().slice(0, 320);
   let seed = 0;
@@ -18,78 +22,60 @@ async function callWithRetry<T>(fn: () => Promise<T>, retries = MAX_RETRIES, del
   try {
     return await fn();
   } catch (error: any) {
-    let errorString = '';
-    
-    if (typeof error === 'string') {
-      errorString = error;
-    } else if (error instanceof Error) {
-      errorString = error.message;
-      try {
-         const parsed = JSON.parse(error.message);
-         if (parsed && typeof parsed === 'object') {
-            errorString += JSON.stringify(parsed);
-         }
-      } catch (e) {}
-    } else {
-      errorString = JSON.stringify(error);
-    }
+    const errorString = typeof error === 'string' ? error : (error?.message || JSON.stringify(error || {}));
 
-    if (error?.error) {
-      errorString += JSON.stringify(error.error);
-    }
-
-    const isRateLimit = 
-      errorString.includes('429') || 
-      errorString.includes('RESOURCE_EXHAUSTED') || 
-      errorString.includes('quota') ||
-      error?.status === 429 ||
-      error?.status === 'RESOURCE_EXHAUSTED' ||
-      error?.error?.code === 429 ||
-      error?.error?.status === 'RESOURCE_EXHAUSTED';
-
-    const isInternalError =
-      error?.status === 500 ||
-      errorString.includes('500') ||
-      errorString.includes('INTERNAL') ||
-      errorString.includes('overloaded');
-
-    // A hard quota (free tier has limit: 0 for a model) will never recover on
-    // retry — fail fast instead of hammering the API and spamming the console.
-    const isHardQuota =
-      errorString.includes('"limit":0') ||
-      errorString.includes('limit: 0') ||
-      errorString.includes('free_tier');
+    const isRateLimit = errorString.includes('429') || errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('rate') || error?.status === 429;
+    const isInternalError = error?.status === 500 || errorString.includes('500') || errorString.includes('overloaded');
+    const isHardQuota = errorString.includes('"limit":0') || errorString.includes('limit: 0') || errorString.includes('free_tier') || errorString.includes('insufficient');
 
     if (retries > 0 && !isHardQuota && (isRateLimit || isInternalError)) {
-      await new Promise(resolve => setTimeout(resolve, delay));
-      const nextDelay = delay * 2 + Math.floor(Math.random() * 500);
-      return callWithRetry(fn, retries - 1, nextDelay);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return callWithRetry(fn, retries - 1, delay * 2 + Math.floor(Math.random() * 500));
     }
     throw error;
   }
 }
 
-export const generateCourseStructure = async (prompt: string, thinking: boolean = false, language: string = "fr"): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const modelName = thinking ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
-  const config: any = {
-    responseMimeType: "application/json",
-  };
+interface ChatMessage { role: 'system' | 'user' | 'assistant'; content: string; }
 
-  if (thinking) {
-    config.thinkingConfig = { thinkingBudget: 32768 };
-  }
+// Core call: POST to the OpenAI-compatible /chat/completions endpoint.
+const qwenChat = async (messages: ChatMessage[], opts: { json?: boolean; maxTokens?: number; temperature?: number } = {}): Promise<string> => {
+  return callWithRetry(async () => {
+    const res = await fetch(`${QWEN_BASE}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${QWEN_KEY}`,
+      },
+      body: JSON.stringify({
+        model: QWEN_MODEL,
+        messages,
+        temperature: opts.temperature ?? 0.7,
+        max_tokens: opts.maxTokens ?? 4096,
+        ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
+      }),
+    });
 
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`HTTP ${res.status} ${body.slice(0, 500)}`);
+    }
+    const data = await res.json();
+    return data?.choices?.[0]?.message?.content?.trim() || '';
+  });
+};
+
+export const generateCourseStructure = async (prompt: string, thinking: boolean = false, language: string = 'fr'): Promise<string> => {
   const systemInstruction = `
     Rôle : Tu es "Blackmind Architect".
     Style : Minimaliste, intelligent, précis, direct, légèrement provocateur. "No fluff".
     MISSION : Génère une structure JSON pour un cours complet. TOUT le contenu généré (titres, modules, leçons, textes, quiz) DOIT ETRE redigé dans la langue spécifiée: ${language}.
-    
+
     IMPORTANT : STRUCTURE PÉDAGOGIQUE OBLIGATOIRE
     Le TOUT PREMIER bloc de la TOUTE PREMIÈRE leçon du premier module DOIT être un bloc de type "overview" contenant les métadonnées pédagogiques.
-    
+
     NOUVEAUTÉ : Ajoute occasionnellement (1 à 2 par module) des blocs de type "insight". Ce sont des "AI Insight Tips" : des conseils profonds, des réflexions méta ou des raccourcis cognitifs basés sur l'IA concernant le sujet.
-    
+
     Format du bloc "overview":
     {
       "id": "overview-1",
@@ -119,7 +105,7 @@ export const generateCourseStructure = async (prompt: string, thinking: boolean 
       }
     }
 
-    SCHEMA JSON STRICT :
+    SCHEMA JSON STRICT (réponds UNIQUEMENT avec ce JSON, sans texte autour) :
     {
       "commentary": "...",
       "suggestions": ["...", "...", "..."],
@@ -128,20 +114,20 @@ export const generateCourseStructure = async (prompt: string, thinking: boolean 
         "description": "...",
         "category": "...",
         "modules": [
-          { 
-            "id": "m1", 
-            "title": "...", 
-            "lessons": [ 
-              { 
-                "id": "l1", 
-                "title": "Introduction", 
-                "content": [ 
+          {
+            "id": "m1",
+            "title": "...",
+            "lessons": [
+              {
+                "id": "l1",
+                "title": "Introduction",
+                "content": [
                   { "id": "overview-1", "type": "overview", "value": { ... } },
                   { "id": "b1", "type": "text", "value": "..." },
                   { "id": "i1", "type": "insight", "value": { ... } }
-                ] 
-              } 
-            ] 
+                ]
+              }
+            ]
           }
         ]
       }
@@ -149,174 +135,78 @@ export const generateCourseStructure = async (prompt: string, thinking: boolean 
   `;
 
   try {
-    return await callWithRetry(async () => {
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: `Génère une structure de cours complète sur le sujet : "${prompt}".`,
-        config: {
-          ...config,
-          systemInstruction,
-        },
-      });
-      return response.text || '';
-    });
+    return await qwenChat(
+      [
+        { role: 'system', content: systemInstruction },
+        { role: 'user', content: `Génère une structure de cours complète sur le sujet : "${prompt}". Réponds en JSON.` },
+      ],
+      { json: true, maxTokens: 8000 },
+    );
   } catch (e: any) {
-    console.error("Structure generation failed", e);
-    return JSON.stringify({ 
-      commentary: "Erreur de génération.", 
-      suggestions: ["Réessayer"], 
-      course: { title: "Erreur", description: "", category: "Erreur", modules: [] } 
+    console.error('[ai] Structure generation failed', e?.message || e);
+    return JSON.stringify({
+      commentary: 'Erreur de génération.',
+      suggestions: ['Réessayer'],
+      course: { title: 'Erreur', description: '', category: 'Erreur', modules: [] },
     });
   }
 };
 
 export const refineContent = async (text: string, action: string, thinking: boolean = false): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const modelName = thinking ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
-  const fullPrompt = `${action}\n\n---\n${text}\n---\nRetourne uniquement le résultat en Markdown.`;
-  const config: any = {};
-  if (thinking) config.thinkingConfig = { thinkingBudget: 32768 };
-
   try {
-    return await callWithRetry(async () => {
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: fullPrompt,
-        config
-      });
-      return response.text || text;
-    });
-  } catch (e) {
+    return await qwenChat(
+      [
+        { role: 'system', content: 'Tu es un éditeur expert. Retourne UNIQUEMENT le résultat en Markdown, sans commentaire.' },
+        { role: 'user', content: `${action}\n\n---\n${text}\n---` },
+      ],
+      { maxTokens: 3000 },
+    ) || text;
+  } catch {
     return text;
   }
 };
 
-export const generateSpeech = async (text: string): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  try {
-    return await callWithRetry(async () => {
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text }] }],
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: 'Kore' },
-            },
-          },
-        },
-      });
-      return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
-    });
-  } catch (error) {
-    throw error;
-  }
-};
-
 export const generateAiBlock = async (type: string, prompt: string, options: any = {}): Promise<any> => {
-  const thinking = options.thinking || false;
-  const textModel = thinking ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
-  
-  const textConfig: any = {};
-  if (thinking) textConfig.thinkingConfig = { thinkingBudget: 32768 };
-
   try {
-    return await callWithRetry(async () => {
-      if (type === 'image') {
-        const isHighRes = options.imageSize === '2K' || options.imageSize === '4K';
-        const imageModel = isHighRes ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    if (type === 'image') {
+      // Free keyless image generation (works without any billed image quota).
+      return freeImageUrl(prompt);
+    }
 
-        // imageConfig only carries fields the model supports; imageSize is a
-        // Pro-only option (sending it to the flash model 400s the request).
-        const imageConfig: any = { aspectRatio: options.aspectRatio || '16:9' };
-        if (isHighRes) imageConfig.imageSize = options.imageSize;
+    if (type === 'video') {
+      return `https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=0`;
+    }
 
-        const response = await ai.models.generateContent({
-          model: imageModel,
-          contents: `Professional educational illustration: ${prompt}. Minimalist, modern aesthetic. No text.`,
-          config: {
-            // Required for native image generation — without it the model
-            // returns only text and no image data is produced.
-            responseModalities: [Modality.IMAGE],
-            imageConfig,
-          },
-        });
+    if (type === 'quiz') {
+      const raw = await qwenChat(
+        [
+          { role: 'system', content: 'Tu génères des quiz pédagogiques. Réponds UNIQUEMENT en JSON.' },
+          { role: 'user', content: `Génère un quiz (une question, 3-4 options, l'index de la bonne réponse) sur : "${prompt}". Format JSON: {"question": string, "options": string[], "correctAnswer": number}.` },
+        ],
+        { json: true, maxTokens: 800 },
+      );
+      const clean = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+      return JSON.parse(clean || '{}');
+    }
 
-        for (const part of response.candidates?.[0]?.content?.parts || []) {
-          if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-        }
-        // No inline image (e.g. tier restriction) → free keyless generator
-        return freeImageUrl(prompt);
-      }
+    if (type === 'exercise') {
+      return await qwenChat([{ role: 'user', content: `Crée un exercice pratique en Markdown sur : "${prompt}".` }], { maxTokens: 1500 });
+    }
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-      if (type === 'video') {
-        return `https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=0`; 
-      }
-
-      if (type === 'quiz') {
-        const response = await ai.models.generateContent({
-          model: textModel,
-          contents: `Génère un quiz sur : "${prompt}". JSON format strictly.`,
-          config: {
-            ...textConfig,
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                question: { type: Type.STRING },
-                options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                correctAnswer: { type: Type.INTEGER }
-              },
-              required: ["question", "options", "correctAnswer"]
-            }
-          }
-        });
-        return JSON.parse(response.text || '{}');
-      }
-
-      if (type === 'exercise') {
-        const response = await ai.models.generateContent({
-          model: textModel,
-          contents: `Crée un exercice pratique en Markdown sur : "${prompt}".`,
-          config: textConfig
-        });
-        return response.text?.trim() || "";
-      }
-
-      const response = await ai.models.generateContent({
-        model: textModel,
-        contents: `Rédige un cours expert en Markdown sur : "${prompt}".`,
-        config: textConfig
-      });
-      return response.text?.trim() || "";
-    });
+    // default: rich text block
+    return await qwenChat([{ role: 'user', content: `Rédige un contenu de cours expert et clair en Markdown sur : "${prompt}".` }], { maxTokens: 2000 });
   } catch (error: any) {
-    console.error(`[geminiService] ${type} generation failed:`, error?.message || error);
-    // Fall back to the free keyless image generator so covers/illustrations
-    // still work without a billed Gemini image quota.
+    console.error(`[ai] ${type} generation failed:`, error?.message || error);
     if (type === 'image') return freeImageUrl(prompt);
-    return "Contenu indisponible.";
+    return 'Contenu indisponible.';
   }
 };
 
-export const generateStorytellingStructure = async (prompt: string, thinking: boolean = false, language: string = "fr"): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const modelName = thinking ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
-  const config: any = {
-    responseMimeType: "application/json",
-  };
-  if (thinking) {
-    config.thinkingConfig = { thinkingBudget: 32768 };
-  }
-
+export const generateStorytellingStructure = async (prompt: string, thinking: boolean = false, language: string = 'fr'): Promise<string> => {
   const systemInstruction = `
     Role: You are an expert screenwriter and director.
-    Task: Create a storytelling structure based on the prompt.
-    Output JSON format:
+    Task: Create a storytelling structure based on the prompt, written in language: ${language}.
+    Respond ONLY with JSON in this format:
     {
       "title": "Story Title",
       "logline": "One sentence summary",
@@ -331,19 +221,16 @@ export const generateStorytellingStructure = async (prompt: string, thinking: bo
       ]
     }
   `;
-
   try {
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: prompt,
-      config: {
-        ...config,
-        systemInstruction,
-      }
-    });
-    return response.text;
+    return await qwenChat(
+      [
+        { role: 'system', content: systemInstruction },
+        { role: 'user', content: `${prompt}. Respond in JSON.` },
+      ],
+      { json: true, maxTokens: 6000 },
+    );
   } catch (error) {
-    console.error("Error generating storytelling:", error);
+    console.error('[ai] Error generating storytelling:', error);
     throw error;
   }
 };

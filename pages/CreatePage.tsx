@@ -94,10 +94,9 @@ import {
   Camera
 } from 'lucide-react';
 import { marked } from 'marked';
-import { generateCourseStructure, generateStorytellingStructure, refineContent, generateAiBlock, generateSpeech } from '../services/geminiService';
+import { generateCourseStructure, generateStorytellingStructure, refineContent, generateAiBlock } from '../services/geminiService';
 import { exportCoursePdf, exportCourseDocx } from '../services/exportService';
 import { makeGradientCover } from '../services/coverImage';
-import { connectLiveAssistant, decode, decodeAudioData } from '../services/liveService';
 import { Course, Module, Lesson, ContentBlock, BlockType, UserProfile, WorkspaceMember } from '../types';
 import { useCourseContext } from '../store/useCourseStore';
 import ArModelBlock from '../components/ArModelBlock';
@@ -298,10 +297,8 @@ const CreatePage: React.FC<CreatePageProps> = () => {
   // Refinement Dropdown State
   const [activeRefinementMenu, setActiveRefinementMenu] = useState<{ type: 'block' | 'selection', id?: string } | null>(null);
 
-  const liveAssistantRef = useRef<any>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const nextStartTimeRef = useRef<number>(0);
-  const liveSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
+  const recognitionRef = useRef<any>(null);
+  const promptBeforeVoiceRef = useRef<string>('');
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const actionMenuRef = useRef<HTMLDivElement>(null);
@@ -389,100 +386,68 @@ const CreatePage: React.FC<CreatePageProps> = () => {
     return () => stopLiveSession();
   }, [isLiveMode]);
 
+  // Voice input via the browser's free Web Speech API (speech-to-text).
+  // Transcribes what you say into the chat composer — create a course by
+  // voice, no API key, no quota, no billing.
   const startLiveSession = () => {
-    if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      setMessages(prev => [...prev, { role: 'assistant', content: t('create.voiceUnsupported') }]);
+      setIsLiveMode(false);
+      return;
     }
-    nextStartTimeRef.current = 0;
-    
-    if (audioContextRef.current.state === 'suspended') {
-      audioContextRef.current.resume();
-    }
+    const recognition = new SR();
+    recognition.lang = contentLanguage === 'en' ? 'en-US' : 'fr-FR';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    promptBeforeVoiceRef.current = prompt ? prompt.trim() + ' ' : '';
 
-    liveAssistantRef.current = connectLiveAssistant({
-      onOpen: () => {
-        setIsLiveMode(true);
-      },
-      onAudioData: (buffer) => {
-        if (!audioContextRef.current) return;
-        const ctx = audioContextRef.current;
-        nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
-        const source = ctx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(ctx.destination);
-        source.start(nextStartTimeRef.current);
-        nextStartTimeRef.current += buffer.duration;
-        liveSourcesRef.current.add(source);
-        source.onended = () => liveSourcesRef.current.delete(source);
-      },
-      onInterrupted: () => {
-        liveSourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} });
-        liveSourcesRef.current.clear();
-        nextStartTimeRef.current = 0;
-      },
-      onTranscription: (text, isInput) => {
-        setMessages(prev => {
-          const lastMsg = prev[prev.length - 1];
-          const role = isInput ? 'user' : 'assistant';
-          if (lastMsg && lastMsg.role === role && lastMsg.isLive) {
-            const updated = [...prev];
-            updated[updated.length - 1] = { ...lastMsg, content: lastMsg.content + ' ' + text };
-            return updated;
-          }
-          return [...prev, { role, content: text, isLive: true }];
-        });
-      },
-      onClose: () => setIsLiveMode(false),
-      onError: (e) => {
-        console.error(e);
-        setIsLiveMode(false);
+    recognition.onresult = (event: any) => {
+      let finalText = '';
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const chunk = event.results[i][0].transcript;
+        if (event.results[i].isFinal) finalText += chunk;
+        else interim += chunk;
       }
-    }, audioContextRef.current as AudioContext);
+      if (finalText) promptBeforeVoiceRef.current += finalText + ' ';
+      setPrompt((promptBeforeVoiceRef.current + interim).trimStart());
+    };
+    recognition.onerror = (e: any) => {
+      if (e.error !== 'no-speech' && e.error !== 'aborted') console.error('[speech]', e.error);
+      setIsLiveMode(false);
+    };
+    recognition.onend = () => setIsLiveMode(false);
+
+    recognitionRef.current = recognition;
+    try { recognition.start(); } catch { /* already started */ }
   };
 
   const stopLiveSession = () => {
-    if (liveAssistantRef.current) {
-      liveAssistantRef.current.stop();
-      liveAssistantRef.current = null;
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+      recognitionRef.current = null;
     }
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    liveSourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} });
-    liveSourcesRef.current.clear();
   };
 
-  const handlePlayMessage = async (index: number, content: string) => {
-    if (speakingMessageIdx === index) return;
-    
-    setSpeakingMessageIdx(index);
-    try {
-      const base64Audio = await generateSpeech(content);
-      if (base64Audio) {
-        if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-        }
-        const ctx = audioContextRef.current;
-        if (ctx.state === 'suspended') await ctx.resume();
-        
-        const audioBuffer = await decodeAudioData(
-          decode(base64Audio),
-          ctx,
-          24000,
-          1,
-        );
-        
-        const source = ctx.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(ctx.destination);
-        source.start(0);
-        source.onended = () => setSpeakingMessageIdx(null);
-      }
-    } catch (err) {
-      console.error("TTS Failed", err);
+  // Read a message aloud with the browser's free speech synthesis (no API).
+  const handlePlayMessage = (index: number, content: string) => {
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    if (speakingMessageIdx === index) {
+      synth.cancel();
       setSpeakingMessageIdx(null);
+      return;
     }
+    synth.cancel();
+    // strip markdown so it reads naturally
+    const text = content.replace(/[#*`_>[\]()]/g, ' ').replace(/\s+/g, ' ').trim();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = contentLanguage === 'en' ? 'en-US' : 'fr-FR';
+    utter.onend = () => setSpeakingMessageIdx(null);
+    utter.onerror = () => setSpeakingMessageIdx(null);
+    setSpeakingMessageIdx(index);
+    synth.speak(utter);
   };
 
   useEffect(() => {
@@ -1202,17 +1167,8 @@ const CreatePage: React.FC<CreatePageProps> = () => {
     }
   };
 
-  // Toggle Live Assist with user gesture handling
-  const handleMicClick = async () => {
-    if (!isLiveMode) {
-      // User gesture: initializing audio context
-      if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      }
-      if (audioContextRef.current.state === 'suspended') {
-        await audioContextRef.current.resume();
-      }
-    }
+  // Toggle voice dictation (starts/stops via the isLiveMode effect)
+  const handleMicClick = () => {
     setIsLiveMode(!isLiveMode);
   };
 
@@ -1813,7 +1769,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                 <div className="flex justify-start px-4">
                   <div className="bg-red-500/10 border border-red-500/20 px-5 py-2.5 rounded-full flex items-center gap-3 animate-pulse shadow-sm">
                     <div className="w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.5)]"></div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">Live Assist: Listening...</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">{t('create.listening')}</span>
                   </div>
                 </div>
               )}
