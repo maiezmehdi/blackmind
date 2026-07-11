@@ -105,8 +105,49 @@ const WorkspacesPage: React.FC = () => {
     return <div className="h-full flex items-center justify-center text-gemini-text">{t('workspace.loading')}</div>;
   }
 
+  const detailHeaderInner = (
+    <>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-gemini-dim text-[10px] font-bold uppercase tracking-[0.3em]">
+          <Briefcase size={14} /> {t('workspace.subtitle')} {activeWorkspace.name}
+        </div>
+        <div className="flex items-center gap-2">
+          <h1 className="text-4xl md:text-5xl font-bold font-outfit text-gemini-accent tracking-tight">{activeWorkspace.name}</h1>
+          <div className="px-2 py-0.5 rounded bg-gemini-surface text-[10px] text-gemini-dim uppercase tracking-widest border border-gemini-border mt-2">
+            {activeWorkspace.visibility === 'public' ? t('workspace.public') : t('workspace.private')}
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+         <div className="flex -space-x-2">
+            {activeWorkspaceMembers.slice(0, 4).map((m, i) => (
+              <div key={i} className="w-8 h-8 rounded-full bg-gemini-surface border-2 border-gemini-bg flex items-center justify-center text-[10px] font-bold text-gemini-dim overflow-hidden shadow-sm" title={m.profile.name}>
+                {m.profile.avatar ? <img src={m.profile.avatar} alt="user" className="w-full h-full object-cover" /> : m.profile.initials}
+              </div>
+            ))}
+            {activeWorkspaceMembers.length > 4 && (
+              <div className="w-8 h-8 rounded-full bg-gemini-accent border-2 border-gemini-bg flex items-center justify-center text-[10px] font-bold text-gemini-bg shadow-lg">
+                +{activeWorkspaceMembers.length - 4}
+              </div>
+            )}
+          </div>
+          <button 
+            onClick={() => setIsManageTeamModalOpen(true)}
+            className="md:ml-4 bg-gemini-surface border border-gemini-border px-4 py-2 rounded-xl text-xs md:text-sm font-medium hover:border-gemini-dim transition-all flex items-center gap-2 group text-gemini-dim hover:text-gemini-accent"
+          >
+            <Users size={16} /> <span className="hidden md:inline">{t('workspace.manage')}</span>
+          </button>
+      </div>
+    </>
+  );
+
   return (
     <div className="h-full flex flex-col md:flex-row overflow-hidden bg-gemini-bg">
+      {/* Mobile: workspace title & subtitle first */}
+      <header className="md:hidden p-6 border-b border-gemini-border flex flex-col gap-5 shrink-0">
+        {detailHeaderInner}
+      </header>
+
       {/* Sidebar - Workspaces List */}
       <div className="w-full md:w-80 border-b md:border-b-0 md:border-r border-gemini-border flex flex-col shrink-0 animate-in slide-in-from-left duration-300 bg-gemini-sidebar/50">
         <div className="p-4 md:p-6 border-b border-gemini-border flex items-center justify-between bg-gemini-header/30 backdrop-blur-sm">
@@ -137,38 +178,8 @@ const WorkspacesPage: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in duration-500 relative">
-        <header className="p-6 md:p-10 border-b border-gemini-border flex flex-col md:flex-row md:items-center justify-between gap-6 shrink-0">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-gemini-dim text-[10px] font-bold uppercase tracking-[0.3em]">
-              <Briefcase size={14} /> {t('workspace.subtitle')} {activeWorkspace.name}
-            </div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-4xl md:text-5xl font-bold font-outfit text-gemini-accent tracking-tight">{activeWorkspace.name}</h1>
-              <div className="px-2 py-0.5 rounded bg-gemini-surface text-[10px] text-gemini-dim uppercase tracking-widest border border-gemini-border mt-2">
-                {activeWorkspace.visibility === 'public' ? t('workspace.public') : t('workspace.private')}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-             <div className="flex -space-x-2">
-                {activeWorkspaceMembers.slice(0, 4).map((m, i) => (
-                  <div key={i} className="w-8 h-8 rounded-full bg-gemini-surface border-2 border-gemini-bg flex items-center justify-center text-[10px] font-bold text-gemini-dim overflow-hidden shadow-sm" title={m.profile.name}>
-                    {m.profile.avatar ? <img src={m.profile.avatar} alt="user" className="w-full h-full object-cover" /> : m.profile.initials}
-                  </div>
-                ))}
-                {activeWorkspaceMembers.length > 4 && (
-                  <div className="w-8 h-8 rounded-full bg-gemini-accent border-2 border-gemini-bg flex items-center justify-center text-[10px] font-bold text-gemini-bg shadow-lg">
-                    +{activeWorkspaceMembers.length - 4}
-                  </div>
-                )}
-              </div>
-              <button 
-                onClick={() => setIsManageTeamModalOpen(true)}
-                className="ml-4 bg-gemini-surface border border-gemini-border px-4 py-2 rounded-xl text-xs md:text-sm font-medium hover:border-gemini-dim transition-all flex items-center gap-2 group text-gemini-dim hover:text-gemini-accent"
-              >
-                <Users size={16} /> <span className="hidden md:inline">{t('workspace.manage')}</span>
-              </button>
-          </div>
+        <header className="hidden md:flex p-10 border-b border-gemini-border md:flex-row md:items-center justify-between gap-6 shrink-0">
+          {detailHeaderInner}
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-8 pb-24 md:pb-10 no-scrollbar">

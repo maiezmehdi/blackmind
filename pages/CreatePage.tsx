@@ -1081,7 +1081,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
   const RefinementDropdown = ({ type, id, onAction }: { type: 'block' | 'selection', id?: string, onAction: (id: string, prompt: string) => void }) => (
     <div 
       ref={refinementDropdownRef}
-      className={`absolute z-[120] bg-gemini-surface border border-gemini-border rounded-2xl shadow-2xl py-2 w-64 animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${type === 'block' ? 'right-0 top-10' : 'left-0 top-full mt-2'}`}
+      className={`absolute z-[120] bg-gemini-surface border border-gemini-border rounded-2xl shadow-2xl py-2 w-56 md:w-64 max-w-[calc(100vw-1.5rem)] animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${type === 'block' ? 'top-10 left-1/2 -ml-28 md:ml-0 md:left-auto md:right-0' : 'left-0 top-full mt-2'}`}
     >
       <div className="px-4 py-2 border-b border-gemini-border mb-1">
         <p className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim">Actions IA</p>
