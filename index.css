@@ -136,6 +136,13 @@ model-viewer {
   scrollbar-width: none;
 }
 
+/* Design-system glass surface (was referenced across pages but never defined) */
+.glass-card {
+  background-color: color-mix(in srgb, var(--gemini-surface) 60%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
 /* Premium Markdown (Prose) Theme */
 .prose-gemini {
   line-height: 1.75;

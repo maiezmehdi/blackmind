@@ -1247,11 +1247,11 @@ const CreatePage: React.FC<CreatePageProps> = () => {
       {isAiModalOpen && aiModalConfig && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => !isAiGenerating && setIsAiModalOpen(false)}></div>
-          <div className="relative w-full max-w-2xl glass-card rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] bg-gemini-surface/80 backdrop-blur-3xl">
+          <div className="relative w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] bg-gemini-surface border border-gemini-border">
             <div className="p-8 border-b border-gemini-border flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gemini-bg rounded-xl flex items-center justify-center text-gemini-text shadow-sm border border-gemini-border">
-                  {aiModalConfig.action === 'translate' ? <Globe size={20} /> : <Sparkles size={20} />}
+                <div className="w-10 h-10 bg-gemini-accent rounded-xl flex items-center justify-center text-gemini-bg shadow-sm">
+                  {aiModalConfig.action === 'translate' ? <Globe size={20} /> : <RabbitLogo className="w-5 h-5" />}
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-gemini-text font-outfit">{aiModalConfig.title}</h3>
@@ -1378,7 +1378,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                         value={aiModalInput}
                         onChange={(e) => setAiModalInput(e.target.value)}
                         placeholder={aiModalConfig.placeholder}
-                        className="w-full bg-gemini-surface border border-gemini-border rounded-2xl p-5 text-sm outline-none focus:border-gemini-accent transition-all placeholder:text-gemini-dim text-gemini-text min-h-[120px] resize-none"
+                        className="w-full bg-gemini-bg border border-gemini-border rounded-2xl p-5 text-sm outline-none focus:border-gemini-accent transition-all placeholder:text-gemini-dim text-gemini-text min-h-[120px] resize-none"
                         onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleAiModalSubmit())}
                       />
                       {isAiGenerating && (
@@ -1650,11 +1650,11 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                    <div className="flex items-center gap-2 mb-1">
                       {m.role === 'assistant' && (
                         <div className="w-6 h-6 rounded-lg bg-gemini-accent text-gemini-bg flex items-center justify-center shadow-sm">
-                          <Sparkles size={12} />
+                          <RabbitLogo className="w-3.5 h-3.5" />
                         </div>
                       )}
                       <span className="text-[9px] font-bold uppercase tracking-widest text-gemini-dim">
-                        {m.role === 'user' ? (currentUser?.name || 'Moi') : 'Sapient AI'}
+                        {m.role === 'user' ? (currentUser?.name || 'Moi') : 'Blackmind AI'}
                       </span>
                       {m.role === 'user' && (
                         <div className={`w-6 h-6 rounded-lg ${currentUser?.color || 'bg-gemini-accent'} text-white flex items-center justify-center shadow-sm text-[10px] font-bold`}>
@@ -1738,7 +1738,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                 <div className="p-6 space-y-4 text-center py-12 animate-in fade-in duration-500">
                    {isThinkingMode && (
                       <div className="mb-6 inline-flex items-center gap-3 px-4 py-2 bg-gemini-accent/5 border border-gemini-accent/20 rounded-full text-[10px] font-bold uppercase tracking-widest text-gemini-accent animate-pulse shadow-sm">
-                        <Brain size={14} /> Sapient AI analyse les données moléculaires...
+                        <Brain size={14} /> {t('create.analyzing')}
                       </div>
                    )}
                   <div className="flex justify-center gap-2 mb-6">

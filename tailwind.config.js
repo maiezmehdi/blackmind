@@ -17,15 +17,18 @@ export default {
         outfit: ['Outfit', 'sans-serif'],
       },
       colors: {
+        // color-mix keeps CSS-variable theming AND makes Tailwind opacity
+        // modifiers work (bg-gemini-surface/50, border-gemini-accent/20, …).
+        // With no modifier <alpha-value> is 1 → the plain token color.
         gemini: {
-          bg: 'var(--gemini-bg)',
-          surface: 'var(--gemini-surface)',
-          header: 'var(--gemini-header)',
-          sidebar: 'var(--gemini-sidebar)',
-          border: 'var(--gemini-border)',
-          text: 'var(--gemini-text)',
-          dim: 'var(--gemini-dim)',
-          accent: 'var(--gemini-accent)',
+          bg: 'color-mix(in srgb, var(--gemini-bg) calc(<alpha-value> * 100%), transparent)',
+          surface: 'color-mix(in srgb, var(--gemini-surface) calc(<alpha-value> * 100%), transparent)',
+          header: 'color-mix(in srgb, var(--gemini-header) calc(<alpha-value> * 100%), transparent)',
+          sidebar: 'color-mix(in srgb, var(--gemini-sidebar) calc(<alpha-value> * 100%), transparent)',
+          border: 'color-mix(in srgb, var(--gemini-border) calc(<alpha-value> * 100%), transparent)',
+          text: 'color-mix(in srgb, var(--gemini-text) calc(<alpha-value> * 100%), transparent)',
+          dim: 'color-mix(in srgb, var(--gemini-dim) calc(<alpha-value> * 100%), transparent)',
+          accent: 'color-mix(in srgb, var(--gemini-accent) calc(<alpha-value> * 100%), transparent)',
           warning: {
             bg: 'var(--gemini-warning-bg)',
             border: 'var(--gemini-warning-border)',
