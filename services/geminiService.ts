@@ -3,7 +3,7 @@
 // The first key/provider that answers wins; a quota/auth/error moves to the
 // next. Gemini is preferred for quality; Qwen is the last-resort backup.
 
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Modality } from '@google/genai';
 
 const GEMINI_KEYS = [process.env.GEMINI_KEY_1, process.env.GEMINI_KEY_2, process.env.GEMINI_KEY_3].filter(Boolean) as string[];
 const GEMINI_MODEL = 'gemini-2.5-flash';
@@ -99,6 +99,32 @@ const geminiOnce = async (key: string, system: string, user: string, json: boole
   const text = res.text?.trim() || '';
   if (!text) throw new Error('empty response');
   return text;
+};
+
+// One Gemini image attempt with a specific key → data URL, or throws.
+const geminiImageOnce = async (key: string, prompt: string): Promise<string> => {
+  const ai = new GoogleGenAI({ apiKey: key });
+  const res = await ai.models.generateContent({
+    model: 'gemini-2.5-flash-image',
+    contents: `Professional educational illustration: ${prompt}. Minimalist, modern aesthetic. No text.`,
+    config: { responseModalities: [Modality.IMAGE], imageConfig: { aspectRatio: '16:9' } },
+  });
+  for (const part of res.candidates?.[0]?.content?.parts || []) {
+    if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+  }
+  throw new Error('no image data');
+};
+
+// Image: try each Gemini key, then fall back to free Pollinations.
+export const generateImage = async (prompt: string): Promise<string> => {
+  for (let i = 0; i < GEMINI_KEYS.length; i++) {
+    try {
+      return await geminiImageOnce(GEMINI_KEYS[i], prompt);
+    } catch (e: any) {
+      console.warn(`[ai] Gemini image key ${i + 1} failed, trying next:`, e?.message || e);
+    }
+  }
+  return freeImageUrl(prompt);
 };
 
 // Unified text generation: try each Gemini key in order, then Qwen.
@@ -226,8 +252,8 @@ export const refineContent = async (text: string, action: string, thinking: bool
 export const generateAiBlock = async (type: string, prompt: string, options: any = {}): Promise<any> => {
   try {
     if (type === 'image') {
-      // Free keyless image generation (works without any billed image quota).
-      return freeImageUrl(prompt);
+      // Gemini image (across the keys) → free Pollinations fallback.
+      return await generateImage(prompt);
     }
 
     if (type === 'video') {
