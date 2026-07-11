@@ -210,22 +210,27 @@ export const generateAiBlock = async (type: string, prompt: string, options: any
         const isHighRes = options.imageSize === '2K' || options.imageSize === '4K';
         const imageModel = isHighRes ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        
+
+        // imageConfig only carries fields the model supports; imageSize is a
+        // Pro-only option (sending it to the flash model 400s the request).
+        const imageConfig: any = { aspectRatio: options.aspectRatio || '16:9' };
+        if (isHighRes) imageConfig.imageSize = options.imageSize;
+
         const response = await ai.models.generateContent({
           model: imageModel,
-          contents: { parts: [{ text: `Professional educational illustration: ${prompt}. Minimalist aesthetic.` }] },
-          config: { 
-            imageConfig: { 
-              aspectRatio: options.aspectRatio || "16:9",
-              imageSize: options.imageSize || "1K"
-            } 
-          }
+          contents: `Professional educational illustration: ${prompt}. Minimalist, modern aesthetic. No text.`,
+          config: {
+            // Required for native image generation — without it the model
+            // returns only text and no image data is produced.
+            responseModalities: [Modality.IMAGE],
+            imageConfig,
+          },
         });
 
         for (const part of response.candidates?.[0]?.content?.parts || []) {
           if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
         }
-        throw new Error("No image data");
+        throw new Error('No image data');
       }
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -272,6 +277,7 @@ export const generateAiBlock = async (type: string, prompt: string, options: any
       return response.text?.trim() || "";
     });
   } catch (error: any) {
+    console.error(`[geminiService] ${type} generation failed:`, error?.message || error);
     if (type === 'image') return "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80&w=800";
     return "Contenu indisponible.";
   }

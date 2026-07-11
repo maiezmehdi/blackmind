@@ -620,13 +620,17 @@ const CreatePage: React.FC<CreatePageProps> = () => {
         // Generate the course cover right away from the generated content
         // (async, non-blocking — the placeholder stays until the image lands).
         const coverPrompt = `Couverture de cours en ligne : "${newCourse.title}". ${newCourse.description || activePrompt}`;
+        setIsGeneratingCover(true);
         generateAiBlock('image', coverPrompt, { aspectRatio: '16:9' })
           .then((img: any) => {
-            if (typeof img === 'string' && img) {
+            // Only apply a genuine AI image (data: URL); on failure generateAiBlock
+            // returns a stock URL — keep the default rather than masking the error.
+            if (typeof img === 'string' && img.startsWith('data:')) {
               setGeneratedCourse(prev => (prev && prev.id === newCourse.id ? { ...prev, image: img } : prev));
             }
           })
-          .catch(() => { /* keep placeholder cover */ });
+          .catch(() => { /* keep placeholder cover */ })
+          .finally(() => setIsGeneratingCover(false));
       }
     } catch (err: any) {
       setError("Erreur de génération.");
