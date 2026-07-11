@@ -1,0 +1,8 @@
+{
+  "name": "Remix-Blackmind app",
+  "description": "Plateforme de création de cours en ligne propulsée par l\u0027IA avec une interface moderne",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
