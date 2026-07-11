@@ -84,7 +84,10 @@
     "completed": "complété",
     "modulesCountPlural": "modules",
     "modulesCountSingular": "module",
-    "suggestPrefill": "Crée un cours complet et structuré sur : {title}"
+    "suggestPrefill": "Crée un cours complet et structuré sur : {title}",
+    "emptyTitle": "Aucun cours pour le moment",
+    "emptyDesc": "Lancez-vous : décrivez un sujet et laissez l'IA construire votre premier cours.",
+    "emptyCta": "Créer mon premier cours"
   },
   "progress": {
     "title": "Progression",
@@ -322,7 +325,9 @@
     "lifetime": "Accès à vie",
     "reviews": "avis",
     "students": "étudiants",
-    "noResults": "Aucun résultat trouvé pour cette recherche."
+    "noResults": "Aucun résultat trouvé pour cette recherche.",
+    "emptyTitle": "Aucun résultat",
+    "emptyDesc": "Aucun cours ne correspond à votre recherche. Essayez un autre mot-clé ou une autre catégorie."
   },
   "pricing": {
     "title": "Investissez dans votre Savoir",
@@ -380,9 +385,6 @@
     "business": "Business",
     "languages": "Langues",
     "science": "Sciences"
-  },
-  "workspaces": {
-    "title": "Espaces"
   },
   "header": {
     "notifications": "Notifications",

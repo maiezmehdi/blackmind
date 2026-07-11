@@ -332,9 +332,10 @@ const MarketplacePage: React.FC = () => {
               </div>
             </div>
           )) : (
-            <div className="col-span-full py-20 text-center space-y-4 text-gemini-dim">
-               <Search size={48} className="mx-auto opacity-20" />
-               <p className="font-medium">{t('marketplace.noResults')}</p>
+            <div className="col-span-full py-20 text-center flex flex-col items-center gap-3 text-gemini-dim">
+               <Search size={48} className="opacity-20" />
+               <p className="font-bold text-lg text-gemini-text">{t('marketplace.emptyTitle')}</p>
+               <p className="max-w-sm text-sm">{t('marketplace.emptyDesc')}</p>
             </div>
           )}
         </div>

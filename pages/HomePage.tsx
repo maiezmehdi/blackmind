@@ -227,7 +227,7 @@ const HomePage: React.FC = () => {
       </section>
 
       {/* Your Courses */}
-      {courses.length > 0 && (
+      {courses.length > 0 ? (
         <section className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="flex items-center justify-between">
             <h3 className="text-2xl font-bold font-outfit text-gemini-accent">{t('home.yourCreations')}</h3>
@@ -237,15 +237,33 @@ const HomePage: React.FC = () => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {courses.map(course => (
-              <CourseCard 
-                key={course.id} 
-                course={course} 
-                onDelete={deleteCourse} 
+              <CourseCard
+                key={course.id}
+                course={course}
+                onDelete={deleteCourse}
                 labelContinue={t('home.continue')}
                 labelStart={t('home.start')}
                 t={t}
               />
             ))}
+          </div>
+        </section>
+      ) : (
+        <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex flex-col items-center text-center gap-5 py-14 px-6 rounded-3xl border border-dashed border-gemini-border bg-gemini-surface/40">
+            <div className="p-4 bg-gemini-accent text-gemini-bg rounded-2xl shadow-lg">
+              <Sparkles size={28} />
+            </div>
+            <div className="space-y-2 max-w-md">
+              <h3 className="text-xl md:text-2xl font-bold font-outfit text-gemini-accent">{t('home.emptyTitle')}</h3>
+              <p className="text-gemini-dim text-sm leading-relaxed">{t('home.emptyDesc')}</p>
+            </div>
+            <button
+              onClick={() => goCreate()}
+              className="inline-flex items-center gap-2 bg-gemini-accent text-gemini-bg px-6 py-3 rounded-full font-bold text-xs uppercase tracking-widest shadow-lg hover:scale-105 active:scale-95 transition-transform"
+            >
+              <Sparkles size={16} /> {t('home.emptyCta')}
+            </button>
           </div>
         </section>
       )}

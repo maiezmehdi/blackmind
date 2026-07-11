@@ -50,7 +50,10 @@
     "completed": "completed",
     "modulesCountPlural": "modules",
     "modulesCountSingular": "module",
-    "suggestPrefill": "Create a complete, structured course about: {title}"
+    "suggestPrefill": "Create a complete, structured course about: {title}",
+    "emptyTitle": "No courses yet",
+    "emptyDesc": "Get started: describe a topic and let the AI build your first course.",
+    "emptyCta": "Create my first course"
   },
   "progress": {
     "title": "My Progress",
@@ -276,7 +279,9 @@
     "lifetime": "Lifetime access",
     "reviews": "reviews",
     "students": "students",
-    "noResults": "No results found for this search."
+    "noResults": "No results found for this search.",
+    "emptyTitle": "No results",
+    "emptyDesc": "No course matches your search. Try another keyword or category."
   },
   "pricing": {
     "title": "Invest in your Knowledge",
