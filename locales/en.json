@@ -268,7 +268,7 @@
     "liveStop": "Stop voice mode",
     "analyzing": "Blackmind AI is analyzing the data in depth...",
     "exporting": "Generating...",
-    "quotaError": "Free daily AI limit reached. Try again in a few minutes, tomorrow, or enable Google billing for a higher quota.",
+    "quotaError": "AI generation failed. Check your API key and quota (F12 console for details), then try again.",
     "voiceUnsupported": "Voice input isn't available in this browser. Try Chrome or Edge.",
     "listening": "Listening… speak now"
   },
