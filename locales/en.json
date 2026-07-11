@@ -44,7 +44,7 @@
     "start": "Start",
     "heroTitle1": "Turn your expertise into content that",
     "heroTitle2": "captivates.",
-    "heroSubtitle": "Generate courses, scripts, and stories that engage your audience \u2014 powered by artificial intelligence.",
+    "heroSubtitle": "Generate courses, scripts, and stories that engage your audience — powered by artificial intelligence.",
     "by": "By",
     "modulesCount": "module(s)",
     "completed": "completed",
@@ -138,7 +138,7 @@
     }
   },
   "create": {
-    "welcome": "Welcome to Blackmind! \ud83d\udc4b I'm delighted to help you design your next exceptional course.",
+    "welcome": "Welcome to Blackmind! 👋 I'm delighted to help you design your next exceptional course.",
     "placeholder": "What subject are you passionate about?",
     "generating": "The architect is preparing something great...",
     "readyTitle": "Ready to create your course?",
@@ -333,5 +333,10 @@
     "business": "Business",
     "languages": "Languages",
     "science": "Science"
+  },
+  "header": {
+    "notifications": "Notifications",
+    "noNotifications": "No notifications yet.",
+    "account": "My account"
   }
 }

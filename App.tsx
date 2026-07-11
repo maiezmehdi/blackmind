@@ -47,7 +47,6 @@ const AppLayout = ({ children }: { children?: React.ReactNode }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -61,7 +60,6 @@ const AppLayout = ({ children }: { children?: React.ReactNode }) => {
     } else {
       setSidebarCollapsed(false);
     }
-    setIsMobileSearchOpen(false);
     setSidebarOpen(false);
   }, [location.pathname]);
 
@@ -89,10 +87,8 @@ const AppLayout = ({ children }: { children?: React.ReactNode }) => {
 
       <main className="flex-1 flex flex-col min-w-0 relative transition-all duration-300">
         {!hideHeader && (
-          <Header 
+          <Header
             isMobile={isMobile}
-            isMobileSearchOpen={isMobileSearchOpen}
-            onMobileSearchToggle={setIsMobileSearchOpen}
             onSidebarToggle={() => setSidebarOpen(true)}
           />
         )}

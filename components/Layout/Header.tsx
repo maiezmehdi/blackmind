@@ -1,64 +1,110 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Search, Menu, X, Bell } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { Menu, Bell } from 'lucide-react';
 import { useCourseContext } from '../../store/useCourseStore';
 import { useLanguage } from '../../contexts/LanguageContext';
+import RabbitLogo from './RabbitLogo';
 
 interface HeaderProps {
   isMobile: boolean;
-  isMobileSearchOpen: boolean;
-  onMobileSearchToggle: (val: boolean) => void;
   onSidebarToggle: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ 
-  isMobile, 
-  isMobileSearchOpen, 
-  onMobileSearchToggle, 
-  onSidebarToggle 
-}) => {
+const Header: React.FC<HeaderProps> = ({ isMobile, onSidebarToggle }) => {
   const { currentUser } = useCourseContext();
   const { t } = useLanguage();
-  const location = useLocation();
-  const isExplorePage = location.pathname === '/';
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!notifOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [notifOpen]);
+
+  const planLabel =
+    currentUser?.subscription === 'free'
+      ? t('pricing.free')
+      : currentUser?.subscription === 'creator'
+      ? 'Creator'
+      : 'Architect';
 
   return (
     <header className="h-16 border-b border-gemini-border px-4 md:px-8 flex items-center justify-between bg-gemini-header/90 backdrop-blur-md sticky top-0 z-40 animate-in fade-in duration-300">
-      <div className="flex items-center gap-4 flex-1">
-        {isMobile && <button onClick={onSidebarToggle} className="p-2 text-gemini-dim"><Menu size={20} /></button>}
-        
-        {!isExplorePage && (
-          <div className="hidden md:flex items-center gap-4 bg-gemini-surface border border-gemini-border rounded-full px-4 py-1.5 w-96 focus-within:border-gemini-dim transition-all shadow-sm">
-            <Search size={16} className="text-gemini-dim" />
-            <input type="text" placeholder={t('common.searchCourse')} className="bg-transparent border-none outline-none text-sm w-full text-gemini-text placeholder:text-gemini-dim/50" />
-          </div>
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        {isMobile && (
+          <button
+            onClick={onSidebarToggle}
+            className="p-2 -ml-2 text-gemini-dim hover:text-gemini-accent transition-colors"
+            aria-label="Ouvrir le menu"
+          >
+            <Menu size={22} />
+          </button>
         )}
-
-        {isMobile && !isExplorePage && (
-          isMobileSearchOpen ? (
-            <div className="flex-1 flex items-center gap-2 bg-gemini-surface border border-gemini-border rounded-full px-4 py-1.5 animate-in fade-in slide-in-from-right duration-200">
-               <Search size={16} className="text-gemini-dim" />
-               <input autoFocus type="text" placeholder={t('common.search')} className="bg-transparent border-none outline-none text-sm w-full text-gemini-text placeholder:text-gemini-dim/50" />
-               <button onClick={() => onMobileSearchToggle(false)}><X size={16} className="text-gemini-dim" /></button>
-            </div>
-          ) : (
-            <button onClick={() => onMobileSearchToggle(true)} className="p-2 text-gemini-dim bg-gemini-surface border border-gemini-border rounded-full shadow-sm"><Search size={18} /></button>
-          )
+        {/* Brand shown on mobile where the sidebar is hidden, for orientation */}
+        {isMobile && (
+          <Link to="/" className="flex items-center gap-2 text-gemini-accent min-w-0">
+            <RabbitLogo className="w-7 h-7 shrink-0" />
+            <span className="text-lg font-bold font-outfit tracking-tight truncate">Blackmind</span>
+          </Link>
         )}
       </div>
-      
-      {!isMobileSearchOpen && currentUser && (
-        <div className="flex items-center gap-3 pl-2">
-          <Link to="/pricing" className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-all ${currentUser.subscription === 'architect' ? 'bg-gemini-accent text-gemini-bg border-gemini-accent' : 'bg-gemini-surface text-gemini-dim border-gemini-border hover:border-gemini-accent'}`}>
-            {currentUser.subscription === 'free' ? t('pricing.free') : currentUser.subscription === 'creator' ? 'Creator' : 'Architect'}
+
+      {currentUser && (
+        <div className="flex items-center gap-2 sm:gap-3 pl-2">
+          <Link
+            to="/pricing"
+            className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border transition-all ${
+              currentUser.subscription === 'architect'
+                ? 'bg-gemini-accent text-gemini-bg border-gemini-accent'
+                : 'bg-gemini-surface text-gemini-dim border-gemini-border hover:border-gemini-accent hover:text-gemini-text'
+            }`}
+          >
+            {planLabel}
           </Link>
-          <button className="p-2 text-gemini-dim hover:text-gemini-accent relative transition-colors">
-            <Bell size={20} />
-            <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-gemini-accent rounded-full animate-pulse"></span>
-          </button>
-          <div className={`w-8 h-8 rounded-full border border-gemini-border flex items-center justify-center text-gemini-bg font-bold text-xs cursor-pointer hover:opacity-80 transition-all shadow-md overflow-hidden ${currentUser.color || 'bg-gemini-accent'}`}>
-            {currentUser.avatar ? <img src={currentUser.avatar} alt="Avatar" className="w-full h-full object-cover" /> : currentUser.initials}
+
+          <div className="relative" ref={notifRef}>
+            <button
+              onClick={() => setNotifOpen((v) => !v)}
+              className={`p-2 rounded-full transition-colors ${
+                notifOpen ? 'text-gemini-accent bg-gemini-surface' : 'text-gemini-dim hover:text-gemini-accent'
+              }`}
+              aria-label={t('header.notifications')}
+            >
+              <Bell size={20} />
+            </button>
+            {notifOpen && (
+              <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-2rem)] bg-gemini-sidebar border border-gemini-border rounded-2xl shadow-2xl p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                <p className="text-xs font-bold uppercase tracking-widest text-gemini-dim mb-3">
+                  {t('header.notifications')}
+                </p>
+                <div className="flex flex-col items-center justify-center gap-2 py-6 text-center">
+                  <Bell size={22} className="text-gemini-dim/50" />
+                  <p className="text-sm text-gemini-dim">{t('header.noNotifications')}</p>
+                </div>
+              </div>
+            )}
           </div>
+
+          <Link
+            to="/settings"
+            aria-label={t('header.account')}
+            title={t('header.account')}
+            className={`w-8 h-8 rounded-full border border-gemini-border flex items-center justify-center text-gemini-bg font-bold text-xs cursor-pointer hover:opacity-80 transition-all shadow-md overflow-hidden shrink-0 ${
+              currentUser.color || 'bg-gemini-accent'
+            }`}
+          >
+            {currentUser.avatar ? (
+              <img src={currentUser.avatar} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              currentUser.initials
+            )}
+          </Link>
         </div>
       )}
     </header>

@@ -1,7 +1,6 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { Course, UserProfile, Workspace, Invitation, WorkspaceMember, Language, SubscriptionTier, AccessibilitySettings } from '../types';
-import { translations } from '../translations';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface CourseContextType {
