@@ -263,7 +263,9 @@
     "optimizing": "Optimizing the pedagogical structure",
     "customInstruction": "Custom instruction",
     "orCustomInstruction": "Or custom instruction",
-    "customOption": "Custom option"
+    "customOption": "Custom option",
+    "liveStart": "Create by voice (voice mode)",
+    "liveStop": "Stop voice mode"
   },
   "learn": {
     "loading": "Loading your course...",

@@ -284,7 +284,9 @@
     "optimizing": "Optimisation de la structure pédagogique",
     "customInstruction": "Instruction personnalisée",
     "orCustomInstruction": "Ou instruction personnalisée",
-    "customOption": "Option personnalisée"
+    "customOption": "Option personnalisée",
+    "liveStart": "Créer à la voix (mode vocal)",
+    "liveStop": "Arrêter le mode vocal"
   },
   "learn": {
     "loading": "Chargement de votre cours...",

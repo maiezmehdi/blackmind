@@ -1644,20 +1644,6 @@ const CreatePage: React.FC<CreatePageProps> = () => {
       <div className="flex-1 flex overflow-hidden">
         {view === 'chat' && !isPreviewMode && (
           <div className="w-full md:w-[450px] flex flex-col border-r border-gemini-border bg-gemini-sidebar animate-in slide-in-from-left duration-300 shrink-0 shadow-xl pb-0 relative">
-            <div className="h-12 border-b border-gemini-border flex items-center justify-between px-4 bg-gemini-sidebar/50 backdrop-blur-md shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-gemini-accent">Sapient AI Core</span>
-              </div>
-              <button 
-                onClick={clearChat}
-                className="p-1.5 text-gemini-dim hover:text-red-500 transition-colors rounded-lg hover:bg-red-500/5"
-                title="Effacer la conversation"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-
             <div className="flex-1 overflow-y-auto p-4 space-y-8 no-scrollbar">
               {messages.map((m, i) => (
                 <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'} group/msg space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
@@ -1846,8 +1832,15 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                         </div>
                       )}
                     </div>
-                    <button 
-                      onClick={() => handleGenerateCourse()} 
+                    <button
+                      onClick={handleMicClick}
+                      className={`p-1.5 rounded-lg transition-all ${isLiveMode ? 'bg-red-500 text-white shadow-[0_0_12px_rgba(239,68,68,0.5)] animate-pulse' : 'text-gemini-dim hover:text-gemini-accent'}`}
+                      title={isLiveMode ? t('create.liveStop') : t('create.liveStart')}
+                    >
+                      {isLiveMode ? <MicOff size={18} /> : <Mic size={18} />}
+                    </button>
+                    <button
+                      onClick={() => handleGenerateCourse()}
                       disabled={!prompt.trim() || isGenerating}
                       className="p-1.5 bg-gemini-accent text-gemini-bg rounded-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >

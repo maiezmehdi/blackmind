@@ -7,7 +7,6 @@ import {
   X, 
   Play, 
   Award,
-  Zap,
   Sparkles,
   ArrowRight,
   Copy
@@ -16,7 +15,6 @@ import { marked } from 'marked';
 import { useCourseContext } from '../store/useCourseStore';
 import { Course } from '../types';
 import ArModelBlock from '../components/ArModelBlock';
-import LiveAssistantOverlay from '../components/LiveAssistantOverlay';
 import CourseMetadataCard from '../components/Shared/CourseMetadataCard';
 
 // @ts-ignore
@@ -45,7 +43,6 @@ const LearnPage: React.FC = () => {
   const [currentLessonIdx, setCurrentLessonIdx] = useState(0);
   const [showCompletionState, setShowCompletionState] = useState(false);
   const [remixSuccess, setRemixSuccess] = useState(false);
-  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
 
   useEffect(() => {
     const found = courses.find(c => c.id === id);
@@ -122,8 +119,6 @@ const LearnPage: React.FC = () => {
 
   return (
     <div className="flex h-full bg-gemini-bg overflow-hidden relative">
-      <LiveAssistantOverlay isOpen={isAssistantOpen} onClose={() => setIsAssistantOpen(false)} />
-      
       <div className={`${isSidebarOpen ? 'w-80' : 'w-0'} bg-gemini-sidebar border-r border-gemini-border transition-all duration-300 flex flex-col overflow-hidden fixed lg:relative h-full z-30 shadow-2xl`}>
         <div className="p-6 border-b border-gemini-border flex items-center justify-between shrink-0">
           <h2 className="font-bold text-xs uppercase tracking-[0.2em] text-gemini-accent">{t('learn.syllabus')}</h2>
@@ -158,8 +153,7 @@ const LearnPage: React.FC = () => {
             >
               <Copy size={14} /> {remixSuccess ? t('learn.remixed') : t('learn.remix')}
             </button>
-            <button onClick={() => setIsAssistantOpen(true)} className="flex items-center gap-2 text-gemini-accent bg-gemini-surface border border-gemini-border px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] shadow-sm"><Zap size={14} /> {t('learn.ai')}</button>
-          </div>
+                      </div>
         </header>
 
         <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-6 md:px-16 py-10 md:py-20 no-scrollbar relative">
