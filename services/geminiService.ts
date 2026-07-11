@@ -31,11 +31,17 @@ export const extractJson = (s: string): string => {
 
 // Free, keyless image generation (Pollinations / Flux). Renders directly in an
 // <img>, so no billing is needed for course covers / illustrations.
-export const freeImageUrl = (prompt: string, w = 1280, h = 720): string => {
+// negative: things Flux should avoid — Pollinations supports this natively,
+// which is far more reliable than "no text" prose alone at keeping generated
+// gibberish text/letters/watermarks out of the image.
+const DEFAULT_NEGATIVE = 'text, words, letters, writing, caption, subtitle, watermark, logo, signature, typography';
+export const freeImageUrl = (prompt: string, w = 1280, h = 720, negative: string = DEFAULT_NEGATIVE): string => {
   const clean = (prompt || 'abstract').replace(/\s+/g, ' ').trim().slice(0, 320);
   let seed = 0;
   for (let i = 0; i < clean.length; i++) seed = (seed * 31 + clean.charCodeAt(i)) >>> 0;
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(clean)}?width=${w}&height=${h}&nologo=true&model=flux&seed=${seed}`;
+  const params = new URLSearchParams({ width: String(w), height: String(h), nologo: 'true', model: 'flux', seed: String(seed) });
+  if (negative) params.set('negative', negative);
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(clean)}?${params.toString()}`;
 };
 
 async function callWithRetry<T>(fn: () => Promise<T>, retries = MAX_RETRIES, delay = INITIAL_RETRY_DELAY): Promise<T> {
@@ -108,7 +114,7 @@ const geminiImageOnce = async (key: string, prompt: string): Promise<string> => 
   const ai = new GoogleGenAI({ apiKey: key });
   const res = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image',
-    contents: `Professional educational illustration: ${prompt}. Minimalist, modern aesthetic. No text.`,
+    contents: `Professional educational illustration: ${prompt}. Minimalist, modern aesthetic. Purely visual image with absolutely no text, no letters, no words, no writing, no captions, no watermark, no logo anywhere in the image.`,
     config: { responseModalities: [Modality.IMAGE], imageConfig: { aspectRatio: '16:9' } },
   });
   for (const part of res.candidates?.[0]?.content?.parts || []) {

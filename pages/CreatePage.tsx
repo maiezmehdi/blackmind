@@ -592,7 +592,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
         // Generate the course cover right away from the generated content
         // (async, non-blocking — the placeholder stays until the image lands).
         // English, style-directed prompt → cleaner, well-composed covers from Flux.
-        const coverPrompt = `Modern minimalist online course cover about "${newCourse.title}". ${newCourse.description || activePrompt}. Professional editorial illustration, clean balanced composition, soft depth, cinematic lighting, high quality, no text, no clutter, no distorted objects.`;
+        const coverPrompt = `Modern minimalist online course cover about "${newCourse.title}". ${newCourse.description || activePrompt}. Professional editorial illustration, clean balanced composition, soft depth, cinematic lighting, high quality, no distorted objects. Purely visual image with absolutely no text, no letters, no words, no writing, no captions, no watermark, no logo anywhere in the image.`;
         setIsGeneratingCover(true);
         const setCover = (src: string) =>
           setGeneratedCourse(prev => (prev && prev.id === newCourse.id ? { ...prev, image: src } : prev));
@@ -655,7 +655,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
     setIsGeneratingCover(true);
     setIsAiGenerating(true);
     try {
-      const imagePrompt = customPrompt || `Modern minimalist online course cover about "${generatedCourse.title}". Professional editorial illustration, clean balanced composition, cinematic lighting, high quality, no text, no clutter, no distorted objects.`;
+      const imagePrompt = customPrompt || `Modern minimalist online course cover about "${generatedCourse.title}". Professional editorial illustration, clean balanced composition, cinematic lighting, high quality, no distorted objects. Purely visual image with absolutely no text, no letters, no words, no writing, no captions, no watermark, no logo anywhere in the image.`;
       const imageUrl = await generateAiBlock('image', imagePrompt, { 
         thinking: isThinkingMode, 
         imageSize: size,
