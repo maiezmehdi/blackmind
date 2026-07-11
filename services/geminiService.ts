@@ -9,6 +9,18 @@ const QWEN_MODEL = process.env.QWEN_MODEL || 'qwen-plus';
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 2000;
 
+// Robustly pull a JSON object/array out of a model reply — tolerates code
+// fences, <think> reasoning blocks, and prose around the JSON. Lets any free
+// model (even reasoning ones) be used without breaking parsing.
+export const extractJson = (s: string): string => {
+  const noThink = String(s || '').replace(/<think>[\s\S]*?<\/think>/gi, '');
+  const noFence = noThink.replace(/```json/gi, '').replace(/```/g, '');
+  const start = noFence.indexOf('{');
+  const end = noFence.lastIndexOf('}');
+  if (start >= 0 && end > start) return noFence.slice(start, end + 1);
+  return noFence.trim();
+};
+
 // Free, keyless image generation (Pollinations / Flux). Renders directly in an
 // <img>, so no billing is needed for course covers / illustrations.
 export const freeImageUrl = (prompt: string, w = 1280, h = 720): string => {
@@ -52,7 +64,8 @@ const qwenChat = async (messages: ChatMessage[], opts: { json?: boolean; maxToke
         messages,
         temperature: opts.temperature ?? 0.7,
         max_tokens: opts.maxTokens ?? 4096,
-        ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
+        // No strict response_format: many free/router models reject it. JSON is
+        // requested in the prompt and extracted robustly via extractJson().
       }),
     });
 
@@ -185,8 +198,7 @@ export const generateAiBlock = async (type: string, prompt: string, options: any
         ],
         { json: true, maxTokens: 800 },
       );
-      const clean = raw.replace(/```json/g, '').replace(/```/g, '').trim();
-      return JSON.parse(clean || '{}');
+      return JSON.parse(extractJson(raw) || '{}');
     }
 
     if (type === 'exercise') {

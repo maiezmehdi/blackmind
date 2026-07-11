@@ -94,7 +94,7 @@ import {
   Camera
 } from 'lucide-react';
 import { marked } from 'marked';
-import { generateCourseStructure, generateStorytellingStructure, refineContent, generateAiBlock } from '../services/geminiService';
+import { generateCourseStructure, generateStorytellingStructure, refineContent, generateAiBlock, extractJson } from '../services/geminiService';
 import { exportCoursePdf, exportCourseDocx } from '../services/exportService';
 import { makeGradientCover } from '../services/coverImage';
 import { Course, Module, Lesson, ContentBlock, BlockType, UserProfile, WorkspaceMember } from '../types';
@@ -554,15 +554,13 @@ const CreatePage: React.FC<CreatePageProps> = () => {
     try {
       if (isStorytellingMode) {
         const response = await generateStorytellingStructure(activePrompt, isThinkingMode, contentLanguage);
-        const cleanResponse = response.replace(/```json/g, '').replace(/```/g, '').trim();
-        let responseData = JSON.parse(cleanResponse);
+        let responseData = JSON.parse(extractJson(response));
         setGeneratedCourse(null);
         setGeneratedStory(responseData);
         setMessages(prev => [...prev, { role: 'assistant', content: t('create.storyGenerated', { count: responseData.modules.length }), suggestions: ["__ACTION_PREVIEW__"], timestamp: new Date() }]);
       } else {
         const response = await generateCourseStructure(activePrompt, isThinkingMode, contentLanguage);
-        const cleanResponse = response.replace(/```json/g, '').replace(/```/g, '').trim();
-        let responseData = JSON.parse(cleanResponse);
+        let responseData = JSON.parse(extractJson(response));
 
         const courseData = responseData.course || responseData;
         const commentary = responseData.commentary || "Architecture générée.";
