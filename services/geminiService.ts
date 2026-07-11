@@ -6,7 +6,9 @@
 import { GoogleGenAI, Modality } from '@google/genai';
 
 const GEMINI_KEYS = [process.env.GEMINI_KEY_1, process.env.GEMINI_KEY_2, process.env.GEMINI_KEY_3].filter(Boolean) as string[];
-const GEMINI_MODEL = 'gemini-2.5-flash';
+// gemini-2.5-flash is no longer offered to new API keys; 2.0-flash is broadly
+// available and has a higher free daily quota (~200/day vs ~20).
+const GEMINI_MODEL = 'gemini-2.0-flash';
 
 const QWEN_KEY = process.env.QWEN_API_KEY || '';
 const QWEN_BASE = (process.env.QWEN_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
