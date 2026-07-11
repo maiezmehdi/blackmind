@@ -14,6 +14,8 @@ const QWEN_KEY = process.env.QWEN_API_KEY || '';
 const QWEN_BASE = (process.env.QWEN_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
 const QWEN_MODEL = process.env.QWEN_MODEL || 'openrouter/free';
 
+const YOUTUBE_KEY = process.env.YOUTUBE_API_KEY || '';
+
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 2000;
 
@@ -133,6 +135,32 @@ export const generateImage = async (prompt: string): Promise<string> => {
     }
   }
   return freeImageUrl(prompt);
+};
+
+// Finds a real, relevant YouTube video for a topic via the YouTube Data API v3
+// (free daily quota). Returns an embeddable URL, or null if no key is set /
+// the search fails / no results — callers fall back to a manual search link.
+export const findYoutubeVideo = async (query: string): Promise<string | null> => {
+  if (!YOUTUBE_KEY) return null;
+  try {
+    const params = new URLSearchParams({
+      part: 'snippet',
+      type: 'video',
+      maxResults: '1',
+      safeSearch: 'strict',
+      relevanceLanguage: 'fr',
+      q: query,
+      key: YOUTUBE_KEY,
+    });
+    const res = await fetch(`https://www.googleapis.com/youtube/v3/search?${params.toString()}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const videoId = data?.items?.[0]?.id?.videoId;
+    return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+  } catch (e: any) {
+    console.warn('[ai] YouTube search failed:', e?.message || e);
+    return null;
+  }
 };
 
 // Unified text generation: try each Gemini key in order, then Qwen.
@@ -265,7 +293,10 @@ export const generateAiBlock = async (type: string, prompt: string, options: any
     }
 
     if (type === 'video') {
-      return `https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=0`;
+      const embedUrl = await findYoutubeVideo(prompt);
+      // No key / no result → an honest fallback the UI renders as a
+      // "search on YouTube" link, instead of a fake/unrelated embed.
+      return embedUrl || { type: 'search-fallback', query: prompt };
     }
 
     if (type === 'quiz') {
@@ -286,6 +317,7 @@ export const generateAiBlock = async (type: string, prompt: string, options: any
   } catch (error: any) {
     console.error(`[ai] ${type} generation failed:`, error?.message || error);
     if (type === 'image') return freeImageUrl(prompt);
+    if (type === 'video') return { type: 'search-fallback', query: prompt };
     return 'Contenu indisponible.';
   }
 };

@@ -91,12 +91,14 @@ import {
   LayoutTemplate,
   Cloud,
   User,
-  Camera
+  Camera,
+  ExternalLink
 } from 'lucide-react';
 import { marked } from 'marked';
 import { generateCourseStructure, generateStorytellingStructure, refineContent, generateAiBlock, extractJson } from '../services/geminiService';
 import { exportCoursePdf, exportCourseDocx } from '../services/exportService';
 import { makeGradientCover } from '../services/coverImage';
+import { downloadMedia, mediaFilename } from '../services/download';
 import { Course, Module, Lesson, ContentBlock, BlockType, UserProfile, WorkspaceMember } from '../types';
 import { useCourseContext } from '../store/useCourseStore';
 import ArModelBlock from '../components/ArModelBlock';
@@ -269,6 +271,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
 
   const [error, setError] = useState<string | null>(null);
   const [isGeneratingCover, setIsGeneratingCover] = useState(false);
+  const [loadingBlockId, setLoadingBlockId] = useState<string | null>(null);
   const [isToolbarLoading, setIsToolbarLoading] = useState(false);
   const [messages, setMessages] = useState<any[]>([
     { role: 'assistant', content: t('create.welcome'), timestamp: new Date() }
@@ -767,6 +770,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
 
     setIsToolbarLoading(true);
     setIsAiGenerating(true);
+    if (blockId) setLoadingBlockId(blockId);
     try {
       if (action === 'expand' || action === 'improve' || action === 'summarize' || action === 'refine' || action === 'generate-text' || action.startsWith('refine-')) {
         const textToRefine = typeof block?.value === 'string' ? block.value : '';
@@ -849,6 +853,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
     } finally {
       setIsToolbarLoading(false);
       setIsAiGenerating(false);
+      setLoadingBlockId(null);
     }
   };
 
@@ -1972,6 +1977,21 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                       <ImageIcon size={14} /> Nano Banana
                    </button>
                  </div>
+                 {!isPreviewMode && (
+                   <button
+                     onClick={() => downloadMedia(generatedCourse.image, mediaFilename(generatedCourse.title, 'jpg'))}
+                     title={t('create.downloadImage')}
+                     className="absolute top-5 right-5 p-3 bg-black/50 backdrop-blur-md text-white rounded-2xl opacity-0 group-hover:opacity-100 transition-all hover:bg-black/70 z-10"
+                   >
+                     <Download size={16} />
+                   </button>
+                 )}
+                 {isGeneratingCover && (
+                   <div className="absolute inset-0 bg-gemini-bg/70 backdrop-blur-sm flex flex-col items-center justify-center gap-3 z-20">
+                     <Loader2 size={28} className="animate-spin text-gemini-accent" />
+                     <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gemini-text">{t('create.generatingCover')}</span>
+                   </div>
+                 )}
                </div>
                
                <div className="text-center space-y-4">
@@ -2053,6 +2073,12 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                                        </div>
 
                                        <div className="relative group/block hover:ring-2 hover:ring-gemini-border/80 hover:bg-gemini-surface/50 rounded-3xl p-4 -mx-4 transition-all" data-block-id={block.id} data-mod-id={mod.id} data-les-id={lesson.id}>
+                                          {loadingBlockId === block.id && (
+                                            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 rounded-3xl bg-gemini-bg/75 backdrop-blur-sm">
+                                              <Loader2 size={22} className="animate-spin text-gemini-accent" />
+                                              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-gemini-dim">{t('create.working')}</span>
+                                            </div>
+                                          )}
                                           {block.type === 'text' && (
                                             <div className="prose-gemini" contentEditable={!isPreviewMode} suppressContentEditableWarning={true} onBlur={(e) => updateBlockValue(mod.id, lesson.id, block.id, e.currentTarget.textContent || '')} dangerouslySetInnerHTML={{ __html: marked.parse(block.value || '') }} />
                                           )}
@@ -2065,9 +2091,24 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                                             <ArModelBlock value={block.value} onUpload={(url) => updateBlockValue(mod.id, lesson.id, block.id, url)} isEditable={true} />
                                           )}
                                           {block.type === 'video' && (
-                                            <div className="aspect-video rounded-3xl overflow-hidden bg-black border border-gemini-border shadow-lg">
-                                              <iframe src={block.value} className="w-full h-full" allowFullScreen />
-                                            </div>
+                                            typeof block.value === 'string' && block.value.startsWith('https://www.youtube.com/embed/') ? (
+                                              <div className="aspect-video rounded-3xl overflow-hidden bg-black border border-gemini-border shadow-lg">
+                                                <iframe src={block.value} className="w-full h-full" allowFullScreen />
+                                              </div>
+                                            ) : (
+                                              <div className="aspect-video rounded-3xl overflow-hidden bg-gemini-surface border border-gemini-border shadow-lg flex flex-col items-center justify-center gap-3 p-8 text-center">
+                                                <VideoIcon size={28} className="text-gemini-dim" />
+                                                <p className="text-xs text-gemini-dim max-w-xs">{t('create.videoSearchFallback')}</p>
+                                                <a
+                                                  href={`https://www.youtube.com/results?search_query=${encodeURIComponent(block.value?.query || block.value || '')}`}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="flex items-center gap-2 px-4 py-2 bg-gemini-accent text-gemini-bg rounded-full text-[10px] font-bold uppercase tracking-widest hover:scale-105 transition-all"
+                                                >
+                                                  <ExternalLink size={12} /> {t('create.searchYoutube')}
+                                                </a>
+                                              </div>
+                                            )
                                           )}
                                           {block.type === 'quiz' && (
                                             <div className="bg-gemini-surface p-8 rounded-[2rem] border border-gemini-border shadow-md transition-shadow hover:shadow-lg">
@@ -2094,6 +2135,18 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                                           
                                           <div className={`absolute -top-4 right-4 flex gap-1 transition-opacity bg-gemini-surface border border-gemini-border rounded-lg shadow-lg p-1 z-[100] ${isPreviewMode ? 'hidden' : 'opacity-0 group-hover/block:opacity-100'}`}>
                                             <button onClick={() => openAiModal({ action: 'refine-regenerate', modId: mod.id, lesId: lesson.id, blockId: block.id, title: 'Améliorer avec l\'IA', placeholder: 'Quelles modifications apporter ?' })} className="p-1.5 hover:bg-gemini-bg rounded text-gemini-dim hover:text-gemini-accent" title="Améliorer avec l'IA"><Sparkles size={14}/></button>
+                                            {block.type === 'image' && (
+                                              <button onClick={() => downloadMedia(block.value, mediaFilename(`${lesson.title}-${bIdx + 1}`, 'jpg'))} className="p-1.5 hover:bg-gemini-bg rounded text-gemini-dim hover:text-gemini-accent" title={t('create.downloadImage')}><Download size={14}/></button>
+                                            )}
+                                            {block.type === 'video' && (
+                                              <a
+                                                href={typeof block.value === 'string' && block.value.startsWith('https://www.youtube.com/embed/') ? block.value.replace('/embed/', '/watch?v=') : `https://www.youtube.com/results?search_query=${encodeURIComponent(block.value?.query || block.value || '')}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-1.5 hover:bg-gemini-bg rounded text-gemini-dim hover:text-gemini-accent"
+                                                title={t('create.openExternal')}
+                                              ><ExternalLink size={14}/></a>
+                                            )}
                                             <button onClick={() => moveBlock(mod.id, lesson.id, block.id, 'up')} className="p-1.5 hover:bg-gemini-bg rounded text-gemini-dim hover:text-gemini-text"><ArrowUp size={14}/></button>
                                             <button onClick={() => moveBlock(mod.id, lesson.id, block.id, 'down')} className="p-1.5 hover:bg-gemini-bg rounded text-gemini-dim hover:text-gemini-text"><ArrowDown size={14}/></button>
                                             <button onClick={() => setDeleteConfirm({ show: true, type: 'block', params: { modId: mod.id, lesId: lesson.id, blockId: block.id }, title: 'Bloc de contenu' })} className="p-1.5 hover:bg-red-500/10 rounded text-red-500/70 hover:text-red-500"><Trash2 size={14}/></button>
@@ -2111,7 +2164,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                                                     <ChevronDown size={10} />
                                                  </button>
                                                  {activeRefinementMenu?.id === `${mod.id}:${lesson.id}:${block.id}` && (
-                                                    <RefinementDropdown type="block" id={`${mod.id}:${lesson.id}:${block.id}`} onAction={(actionId, p) => handleBlockAction(mod.id, lesson.id, block.id, `refine-${actionId}`, p)} />
+                                                    <RefinementDropdown type="block" id={`${mod.id}:${lesson.id}:${block.id}`} onAction={(actionId, p) => { setActiveRefinementMenu(null); handleBlockAction(mod.id, lesson.id, block.id, `refine-${actionId}`, p); }} />
                                                  )}
                                               </div>
                                               <div className="w-px h-4 bg-gemini-border mx-0.5" />

@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import { Box, Upload, X, BoxSelect, Maximize2 } from 'lucide-react';
+import { Box, Upload, X, BoxSelect, Maximize2, Download } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { downloadMedia, mediaFilename } from '../services/download';
 
 interface ArModelBlockProps {
   value: string;
@@ -92,14 +93,23 @@ const ArModelBlock: React.FC<ArModelBlockProps> = ({ value, onUpload, isEditable
         </button>
       </ModelViewer>
       
-      {isEditable && (
-        <button 
-          onClick={() => onUpload('')}
-          className="absolute top-4 right-4 p-2 bg-black/50 backdrop-blur-md text-white rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500"
+      <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+        <button
+          onClick={() => downloadMedia(value, mediaFilename('modele-3d', 'glb'))}
+          className="p-2 bg-black/50 backdrop-blur-md text-white rounded-xl hover:bg-black/70"
+          title={t('ar.download')}
         >
-          <X size={16} />
+          <Download size={16} />
         </button>
-      )}
+        {isEditable && (
+          <button
+            onClick={() => onUpload('')}
+            className="p-2 bg-black/50 backdrop-blur-md text-white rounded-xl hover:bg-red-500"
+          >
+            <X size={16} />
+          </button>
+        )}
+      </div>
     </div>
   );
 };

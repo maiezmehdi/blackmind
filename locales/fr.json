@@ -291,7 +291,13 @@
     "exporting": "Génération...",
     "quotaError": "La génération IA a échoué. Vérifie ta clé API et ton quota (console F12 pour le détail), puis réessaie.",
     "voiceUnsupported": "La saisie vocale n'est pas disponible dans ce navigateur. Essaie avec Chrome ou Edge.",
-    "listening": "Écoute en cours… parlez"
+    "listening": "Écoute en cours… parlez",
+    "downloadImage": "Télécharger l'image",
+    "openExternal": "Ouvrir sur YouTube",
+    "videoSearchFallback": "Aucune vidéo intégrée automatiquement (ajoute une clé YouTube gratuite pour ça). Tu peux chercher une vidéo pertinente en un clic.",
+    "searchYoutube": "Rechercher sur YouTube",
+    "generatingCover": "Génération de la couverture...",
+    "working": "Génération..."
   },
   "learn": {
     "loading": "Chargement de votre cours...",
@@ -441,6 +447,7 @@
   },
   "ar": {
     "title": "Modèle 3D ARCore",
-    "dropHint": "Glissez un fichier .GLB ici"
+    "dropHint": "Glissez un fichier .GLB ici",
+    "download": "Télécharger le modèle 3D"
   }
 }

@@ -21,6 +21,10 @@ export default defineConfig(({ mode }) => {
         'process.env.QWEN_API_KEY': JSON.stringify(env.QWEN_API_KEY || ''),
         'process.env.QWEN_BASE_URL': JSON.stringify(env.QWEN_BASE_URL || 'https://openrouter.ai/api/v1'),
         'process.env.QWEN_MODEL': JSON.stringify(env.QWEN_MODEL || 'openrouter/free'),
+        // Optional — enables real video search for the "Générer une Vidéo" block
+        // (YouTube Data API v3, free quota). Without it, the video block falls
+        // back to a manual "search on YouTube" link.
+        'process.env.YOUTUBE_API_KEY': JSON.stringify(env.YOUTUBE_API_KEY || ''),
       },
       resolve: {
         alias: {
