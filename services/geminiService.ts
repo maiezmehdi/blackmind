@@ -1,10 +1,16 @@
-// Text generation via Qwen through an OpenAI-compatible Chat Completions API.
-// Endpoint and model are configurable (DashScope / OpenRouter / SiliconFlow…)
-// via env, so no code change is needed to switch provider.
+// Text generation with an automatic fallback chain:
+//   Gemini key 1 → key 2 → key 3 → Qwen (OpenAI-compatible).
+// The first key/provider that answers wins; a quota/auth/error moves to the
+// next. Gemini is preferred for quality; Qwen is the last-resort backup.
+
+import { GoogleGenAI } from '@google/genai';
+
+const GEMINI_KEYS = [process.env.GEMINI_KEY_1, process.env.GEMINI_KEY_2, process.env.GEMINI_KEY_3].filter(Boolean) as string[];
+const GEMINI_MODEL = 'gemini-2.5-flash';
 
 const QWEN_KEY = process.env.QWEN_API_KEY || '';
-const QWEN_BASE = (process.env.QWEN_BASE_URL || 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1').replace(/\/$/, '');
-const QWEN_MODEL = process.env.QWEN_MODEL || 'qwen-plus';
+const QWEN_BASE = (process.env.QWEN_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
+const QWEN_MODEL = process.env.QWEN_MODEL || 'openrouter/free';
 
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 2000;
@@ -78,6 +84,48 @@ const qwenChat = async (messages: ChatMessage[], opts: { json?: boolean; maxToke
   });
 };
 
+// One Gemini attempt with a specific key (no retry — a failure means try the
+// next key/provider instead of hammering an exhausted one).
+const geminiOnce = async (key: string, system: string, user: string, json: boolean): Promise<string> => {
+  const ai = new GoogleGenAI({ apiKey: key });
+  const res = await ai.models.generateContent({
+    model: GEMINI_MODEL,
+    contents: user,
+    config: {
+      systemInstruction: system,
+      ...(json ? { responseMimeType: 'application/json' } : {}),
+    },
+  });
+  const text = res.text?.trim() || '';
+  if (!text) throw new Error('empty response');
+  return text;
+};
+
+// Unified text generation: try each Gemini key in order, then Qwen.
+const generateText = async (system: string, user: string, opts: { json?: boolean; maxTokens?: number } = {}): Promise<string> => {
+  let lastErr: any = new Error('No AI provider configured');
+  for (let i = 0; i < GEMINI_KEYS.length; i++) {
+    try {
+      return await geminiOnce(GEMINI_KEYS[i], system, user, !!opts.json);
+    } catch (e: any) {
+      lastErr = e;
+      console.warn(`[ai] Gemini key ${i + 1} failed, trying next:`, e?.message || e);
+    }
+  }
+  if (QWEN_KEY) {
+    try {
+      return await qwenChat(
+        [system ? { role: 'system', content: system } : null, { role: 'user', content: user }].filter(Boolean) as ChatMessage[],
+        { json: opts.json, maxTokens: opts.maxTokens },
+      );
+    } catch (e: any) {
+      lastErr = e;
+      console.warn('[ai] Qwen fallback failed:', e?.message || e);
+    }
+  }
+  throw lastErr;
+};
+
 export const generateCourseStructure = async (prompt: string, thinking: boolean = false, language: string = 'fr'): Promise<string> => {
   const systemInstruction = `
     Rôle : Tu es "Blackmind Architect".
@@ -148,11 +196,9 @@ export const generateCourseStructure = async (prompt: string, thinking: boolean 
   `;
 
   try {
-    return await qwenChat(
-      [
-        { role: 'system', content: systemInstruction },
-        { role: 'user', content: `Génère une structure de cours complète sur le sujet : "${prompt}". Réponds en JSON.` },
-      ],
+    return await generateText(
+      systemInstruction,
+      `Génère une structure de cours complète sur le sujet : "${prompt}". Réponds en JSON.`,
       { json: true, maxTokens: 8000 },
     );
   } catch (e: any) {
@@ -167,13 +213,11 @@ export const generateCourseStructure = async (prompt: string, thinking: boolean 
 
 export const refineContent = async (text: string, action: string, thinking: boolean = false): Promise<string> => {
   try {
-    return await qwenChat(
-      [
-        { role: 'system', content: 'Tu es un éditeur expert. Retourne UNIQUEMENT le résultat en Markdown, sans commentaire.' },
-        { role: 'user', content: `${action}\n\n---\n${text}\n---` },
-      ],
+    return (await generateText(
+      'Tu es un éditeur expert. Retourne UNIQUEMENT le résultat en Markdown, sans commentaire.',
+      `${action}\n\n---\n${text}\n---`,
       { maxTokens: 3000 },
-    ) || text;
+    )) || text;
   } catch {
     return text;
   }
@@ -191,22 +235,20 @@ export const generateAiBlock = async (type: string, prompt: string, options: any
     }
 
     if (type === 'quiz') {
-      const raw = await qwenChat(
-        [
-          { role: 'system', content: 'Tu génères des quiz pédagogiques. Réponds UNIQUEMENT en JSON.' },
-          { role: 'user', content: `Génère un quiz (une question, 3-4 options, l'index de la bonne réponse) sur : "${prompt}". Format JSON: {"question": string, "options": string[], "correctAnswer": number}.` },
-        ],
+      const raw = await generateText(
+        'Tu génères des quiz pédagogiques. Réponds UNIQUEMENT en JSON.',
+        `Génère un quiz (une question, 3-4 options, l'index de la bonne réponse) sur : "${prompt}". Format JSON: {"question": string, "options": string[], "correctAnswer": number}.`,
         { json: true, maxTokens: 800 },
       );
       return JSON.parse(extractJson(raw) || '{}');
     }
 
     if (type === 'exercise') {
-      return await qwenChat([{ role: 'user', content: `Crée un exercice pratique en Markdown sur : "${prompt}".` }], { maxTokens: 1500 });
+      return await generateText('', `Crée un exercice pratique en Markdown sur : "${prompt}".`, { maxTokens: 1500 });
     }
 
     // default: rich text block
-    return await qwenChat([{ role: 'user', content: `Rédige un contenu de cours expert et clair en Markdown sur : "${prompt}".` }], { maxTokens: 2000 });
+    return await generateText('', `Rédige un contenu de cours expert et clair en Markdown sur : "${prompt}".`, { maxTokens: 2000 });
   } catch (error: any) {
     console.error(`[ai] ${type} generation failed:`, error?.message || error);
     if (type === 'image') return freeImageUrl(prompt);
@@ -234,13 +276,7 @@ export const generateStorytellingStructure = async (prompt: string, thinking: bo
     }
   `;
   try {
-    return await qwenChat(
-      [
-        { role: 'system', content: systemInstruction },
-        { role: 'user', content: `${prompt}. Respond in JSON.` },
-      ],
-      { json: true, maxTokens: 6000 },
-    );
+    return await generateText(systemInstruction, `${prompt}. Respond in JSON.`, { json: true, maxTokens: 6000 });
   } catch (error) {
     console.error('[ai] Error generating storytelling:', error);
     throw error;

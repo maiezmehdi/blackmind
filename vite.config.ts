@@ -11,11 +11,16 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       define: {
-        // Qwen (OpenAI-compatible) — endpoint & model configurable so the same
-        // code works with DashScope, OpenRouter or SiliconFlow.
-        'process.env.QWEN_API_KEY': JSON.stringify(env.QWEN_API_KEY),
-        'process.env.QWEN_BASE_URL': JSON.stringify(env.QWEN_BASE_URL || 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1'),
-        'process.env.QWEN_MODEL': JSON.stringify(env.QWEN_MODEL || 'qwen-plus'),
+        // Text: 3 Gemini keys tried in order, then Qwen as last resort.
+        // Accepts either clean names (GEMINI_API_KEY_1..3) or the short names
+        // Gemini / Geminii / Geminiii.
+        'process.env.GEMINI_KEY_1': JSON.stringify(env.GEMINI_API_KEY_1 || env.Gemini || ''),
+        'process.env.GEMINI_KEY_2': JSON.stringify(env.GEMINI_API_KEY_2 || env.Geminii || ''),
+        'process.env.GEMINI_KEY_3': JSON.stringify(env.GEMINI_API_KEY_3 || env.Geminiii || ''),
+        // Qwen (OpenAI-compatible) — endpoint & model configurable.
+        'process.env.QWEN_API_KEY': JSON.stringify(env.QWEN_API_KEY || ''),
+        'process.env.QWEN_BASE_URL': JSON.stringify(env.QWEN_BASE_URL || 'https://openrouter.ai/api/v1'),
+        'process.env.QWEN_MODEL': JSON.stringify(env.QWEN_MODEL || 'openrouter/free'),
       },
       resolve: {
         alias: {
