@@ -603,6 +603,14 @@ const CreatePage: React.FC<CreatePageProps> = () => {
         const commentary = responseData.commentary || "Architecture générée.";
         const suggestions = responseData.suggestions || [];
 
+        // Failed generation returns an empty "Erreur" course — surface a clear
+        // message instead of creating a broken course in the workspace.
+        if (!courseData || courseData.title === 'Erreur' || !Array.isArray(courseData.modules) || courseData.modules.length === 0) {
+          setMessages(prev => [...prev, { role: 'assistant', content: t('create.quotaError'), timestamp: new Date() }]);
+          setIsGenerating(false);
+          return;
+        }
+
         const newCourse: Course = {
           id: Math.random().toString(36).substr(2, 9),
           ...courseData,

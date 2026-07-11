@@ -71,7 +71,7 @@ async function callWithRetry<T>(fn: () => Promise<T>, retries = MAX_RETRIES, del
 
 export const generateCourseStructure = async (prompt: string, thinking: boolean = false, language: string = "fr"): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const modelName = thinking ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
+  const modelName = thinking ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
   const config: any = {
     responseMimeType: "application/json",
   };
@@ -172,7 +172,7 @@ export const generateCourseStructure = async (prompt: string, thinking: boolean 
 
 export const refineContent = async (text: string, action: string, thinking: boolean = false): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const modelName = thinking ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
+  const modelName = thinking ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
   const fullPrompt = `${action}\n\n---\n${text}\n---\nRetourne uniquement le résultat en Markdown.`;
   const config: any = {};
   if (thinking) config.thinkingConfig = { thinkingBudget: 32768 };
@@ -216,7 +216,7 @@ export const generateSpeech = async (text: string): Promise<string> => {
 
 export const generateAiBlock = async (type: string, prompt: string, options: any = {}): Promise<any> => {
   const thinking = options.thinking || false;
-  const textModel = thinking ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
+  const textModel = thinking ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
   
   const textConfig: any = {};
   if (thinking) textConfig.thinkingConfig = { thinkingBudget: 32768 };
@@ -305,7 +305,7 @@ export const generateAiBlock = async (type: string, prompt: string, options: any
 
 export const generateStorytellingStructure = async (prompt: string, thinking: boolean = false, language: string = "fr"): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const modelName = thinking ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
+  const modelName = thinking ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
   const config: any = {
     responseMimeType: "application/json",
   };

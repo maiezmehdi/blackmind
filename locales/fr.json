@@ -288,7 +288,8 @@
     "liveStart": "Créer à la voix (mode vocal)",
     "liveStop": "Arrêter le mode vocal",
     "analyzing": "Blackmind AI analyse les données en profondeur...",
-    "exporting": "Génération..."
+    "exporting": "Génération...",
+    "quotaError": "Limite quotidienne gratuite de l'IA atteinte. Réessaie dans quelques minutes, demain, ou active la facturation Google pour un quota plus élevé."
   },
   "learn": {
     "loading": "Chargement de votre cours...",
