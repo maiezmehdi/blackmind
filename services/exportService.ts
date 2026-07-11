@@ -4,172 +4,343 @@ const slugify = (s: string) =>
   s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
    .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'cours';
 
-/* Markdown -> plain text (keeps the words, drops the syntax) */
+const today = () =>
+  new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+/* Markdown -> plain text (keeps words, drops ALL syntax incl. bold markers) */
 const mdToText = (md: string): string =>
   String(md || '')
     .replace(/```[\s\S]*?```/g, (m) => m.replace(/```/g, '').trim())
     .replace(/`([^`]*)`/g, '$1')
-    .replace(/\*\*([^*]*)\*\*/g, '$1')
-    .replace(/\*([^*]*)\*/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/^>\s?/gm, '')
     .trim();
 
-/* ------------------------------------------------------------------ */
-/* PDF export (jsPDF text API — reliable, selectable text, no canvas)  */
-/* ------------------------------------------------------------------ */
+/* Clean one line but KEEP **bold** markers (for rich DOCX runs) */
+const mdLineClean = (line: string): string =>
+  line
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/^#{1,6}\s+/, '')
+    .replace(/^>\s?/, '')
+    .trim();
+
+/* Split a line into bold / normal segments on **markers** */
+const mdSegments = (line: string): { text: string; bold: boolean }[] =>
+  line.split('**').map((t, i) => ({ text: t, bold: i % 2 === 1 })).filter((s) => s.text);
+
+const isBullet = (l: string) => /^\s*([-*]|\d+\.)\s+/.test(l);
+const stripBullet = (l: string) => l.replace(/^\s*([-*]|\d+\.)\s+/, '');
+
+/* ================================================================== */
+/* PDF — polished layout with jsPDF text API                          */
+/* ================================================================== */
 
 export const exportCoursePdf = async (course: Course): Promise<void> => {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
 
-  const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
-  const margin = 48;
-  const maxW = pageW - margin * 2;
-  let y = margin;
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const M = 56;
+  const CW = W - M * 2;
 
-  const ensureSpace = (needed: number) => {
-    if (y + needed > pageH - margin) {
-      doc.addPage();
-      y = margin;
-    }
-  };
+  const INK: [number, number, number] = [26, 26, 26];
+  const SUB: [number, number, number] = [90, 90, 95];
+  const MUTED: [number, number, number] = [140, 140, 148];
+  const LINE: [number, number, number] = [223, 223, 228];
+  const ACCENT: [number, number, number] = [79, 70, 229];
+  const BOXBG: [number, number, number] = [247, 247, 249];
+  const INSBG: [number, number, number] = [244, 243, 255];
 
-  const write = (
-    text: string,
-    opts: { size?: number; style?: 'normal' | 'bold' | 'italic'; color?: [number, number, number]; gap?: number; indent?: number } = {}
-  ) => {
-    const size = opts.size ?? 11;
-    const indent = opts.indent ?? 0;
-    doc.setFont('helvetica', opts.style ?? 'normal');
+  let y = M;
+  const set = (style: string, size: number, color: [number, number, number]) => {
+    doc.setFont('helvetica', style);
     doc.setFontSize(size);
-    doc.setTextColor(...(opts.color ?? [17, 17, 17]));
-    const lineH = size * 1.4;
-    const lines = doc.splitTextToSize(text, maxW - indent);
-    for (const line of lines) {
-      ensureSpace(lineH);
-      doc.text(line, margin + indent, y);
-      y += lineH;
+    doc.setTextColor(color[0], color[1], color[2]);
+  };
+  const ensure = (need: number) => { if (y + need > H - M - 6) { doc.addPage(); y = M; } };
+
+  const para = (
+    text: string,
+    o: { size?: number; style?: string; color?: [number, number, number]; gap?: number; indent?: number; lh?: number; bullet?: boolean } = {}
+  ) => {
+    const size = o.size ?? 10.5;
+    const lh = (o.lh ?? 1.55) * size;
+    const indent = o.indent ?? 0;
+    const bulletPad = o.bullet ? 14 : 0;
+    const usableW = CW - indent - bulletPad;
+    set(o.style ?? 'normal', size, o.color ?? INK);
+    const lines = doc.splitTextToSize(text, usableW);
+    lines.forEach((ln: string, i: number) => {
+      ensure(lh);
+      if (o.bullet && i === 0) {
+        set('normal', size, ACCENT);
+        doc.text('•', M + indent, y);
+        set(o.style ?? 'normal', size, o.color ?? INK);
+      }
+      doc.text(ln, M + indent + bulletPad, y);
+      y += lh;
+    });
+    y += o.gap ?? 6;
+  };
+
+  const rule = (gapBefore = 2, gapAfter = 14) => {
+    y += gapBefore;
+    ensure(4);
+    doc.setDrawColor(LINE[0], LINE[1], LINE[2]);
+    doc.setLineWidth(0.7);
+    doc.line(M, y, W - M, y);
+    y += gapAfter;
+  };
+
+  // A filled rounded box that fits `lines` of `size`, with a header line
+  const calloutBox = (opts: { title?: string; titleColor?: [number, number, number]; body: string; bg: [number, number, number]; accentBar?: boolean }) => {
+    const pad = 14;
+    const size = 10;
+    const lh = size * 1.5;
+    const bodyLines: string[] = doc.splitTextToSize(mdToText(opts.body), CW - pad * 2);
+    const titleH = opts.title ? size * 1.6 : 0;
+    const boxH = pad * 2 + titleH + bodyLines.length * lh;
+    ensure(boxH + 6);
+    doc.setFillColor(opts.bg[0], opts.bg[1], opts.bg[2]);
+    doc.setDrawColor(LINE[0], LINE[1], LINE[2]);
+    doc.setLineWidth(0.6);
+    doc.roundedRect(M, y, CW, boxH, 9, 9, 'FD');
+    if (opts.accentBar) {
+      doc.setFillColor((opts.titleColor ?? ACCENT)[0], (opts.titleColor ?? ACCENT)[1], (opts.titleColor ?? ACCENT)[2]);
+      doc.roundedRect(M, y, 4, boxH, 2, 2, 'F');
     }
-    y += opts.gap ?? 4;
+    let cy = y + pad + size;
+    if (opts.title) {
+      set('bold', size + 0.5, opts.titleColor ?? ACCENT);
+      doc.text(opts.title, M + pad, cy);
+      cy += titleH;
+    }
+    set('normal', size, INK);
+    bodyLines.forEach((ln) => { doc.text(ln, M + pad, cy); cy += lh; });
+    y += boxH + 12;
   };
 
-  const rule = () => {
-    ensureSpace(10);
-    doc.setDrawColor(220);
-    doc.line(margin, y, pageW - margin, y);
-    y += 12;
-  };
+  /* ---- Title page ---- */
+  doc.setFillColor(ACCENT[0], ACCENT[1], ACCENT[2]);
+  doc.rect(M, y, 40, 4, 'F');
+  y += 26;
+  set('bold', 26, INK);
+  doc.splitTextToSize(course.title, CW).forEach((ln: string) => { ensure(32); doc.text(ln, M, y); y += 31; });
+  y += 4;
+  set('normal', 10, MUTED);
+  doc.text([course.category, course.author].filter(Boolean).join('   •   ').toUpperCase(), M, y);
+  y += 22;
+  if (course.description) para(mdToText(course.description), { size: 12, color: SUB, lh: 1.5, gap: 10 });
+  rule(6, 20);
 
-  // Cover / title block
-  write(course.title, { size: 22, style: 'bold', gap: 2 });
-  write([course.category, course.author].filter(Boolean).join('  •  '), { size: 10, color: [120, 120, 120], gap: 6 });
-  if (course.description) write(mdToText(course.description), { size: 12, color: [70, 70, 70], gap: 8 });
-  rule();
+  /* ---- Table of contents ---- */
+  const modules = course.modules || [];
+  if (modules.length) {
+    set('bold', 9, MUTED);
+    doc.text('TABLE DES MATIÈRES', M, y);
+    y += 18;
+    modules.forEach((mod, mi) => {
+      para(`${String(mi + 1).padStart(2, '0')}.  ${mod.title}`, { size: 11, style: 'bold', gap: 3 });
+      (mod.lessons || []).forEach((les, li) => {
+        para(`${mi + 1}.${li + 1}  ${les.title}`, { size: 10, color: SUB, indent: 22, gap: 2 });
+      });
+      y += 4;
+    });
+  }
 
-  (course.modules || []).forEach((mod, mIdx) => {
-    if (mIdx > 0) { doc.addPage(); y = margin; }
-    write(`Module ${mIdx + 1} — ${mod.title}`, { size: 16, style: 'bold', gap: 8 });
-    (mod.lessons || []).forEach((lesson, lIdx) => {
-      write(`${mIdx + 1}.${lIdx + 1}  ${lesson.title}`, { size: 13, style: 'bold', gap: 6 });
-      (lesson.content || []).forEach((block: any) => {
+  /* ---- Content ---- */
+  modules.forEach((mod, mi) => {
+    doc.addPage();
+    y = M;
+    set('bold', 9, ACCENT);
+    doc.text(`MODULE ${String(mi + 1).padStart(2, '0')}`, M, y);
+    y += 20;
+    set('bold', 18, INK);
+    doc.splitTextToSize(mod.title, CW).forEach((ln: string) => { ensure(24); doc.text(ln, M, y); y += 23; });
+    rule(6, 18);
+
+    (mod.lessons || []).forEach((les, li) => {
+      ensure(30);
+      set('bold', 13, INK);
+      doc.text(`${mi + 1}.${li + 1}`, M, y);
+      set('bold', 13, INK);
+      doc.splitTextToSize(les.title, CW - 30).forEach((ln: string, k: number) => {
+        doc.text(ln, M + 30, y); if (k < 999) y += 18;
+      });
+      y += 6;
+
+      (les.content || []).forEach((block: any) => {
         if (block.type === 'text') {
-          for (const para of mdToText(block.value).split('\n').filter((p) => p.trim())) {
-            const bullet = /^\s*([-*]|\d+\.)\s+/.test(para);
-            write(bullet ? '•  ' + para.replace(/^\s*([-*]|\d+\.)\s+/, '') : para, { size: 11, indent: bullet ? 12 : 0, gap: 3 });
-          }
+          mdToText(block.value).split('\n').filter((p) => p.trim()).forEach((line) => {
+            if (isBullet(line)) para(stripBullet(line), { indent: 6, bullet: true, gap: 4 });
+            else para(line, { gap: 8, lh: 1.6 });
+          });
+        } else if (block.type === 'overview' && block.value?.objectives?.length) {
+          para('Objectifs pédagogiques', { size: 9, style: 'bold', color: MUTED, gap: 5 });
+          block.value.objectives.forEach((ob: string) => para(ob, { indent: 6, bullet: true, gap: 3 }));
           y += 4;
         } else if (block.type === 'insight' && block.value) {
-          write('Insight — ' + (block.value.title || ''), { size: 11, style: 'bold', color: [79, 70, 229], gap: 2 });
-          write(mdToText(block.value.content), { size: 11, color: [70, 70, 70], gap: 6, indent: 12 });
+          calloutBox({ title: block.value.title || 'Insight', titleColor: ACCENT, body: block.value.content || '', bg: INSBG, accentBar: true });
         } else if (block.type === 'quiz' && block.value) {
-          write('Quiz : ' + (block.value.question || ''), { size: 11, style: 'bold', gap: 3 });
-          (block.value.options || []).forEach((o: string, i: number) => {
-            const correct = i === block.value.correctAnswer;
-            write('-  ' + o + (correct ? '   (bonne reponse)' : ''), { size: 11, style: correct ? 'bold' : 'normal', indent: 12, gap: 2 });
-          });
-          y += 4;
-        } else if (block.type === 'overview' && block.value?.objectives?.length) {
-          write('Objectifs :', { size: 11, style: 'bold', gap: 2 });
-          block.value.objectives.forEach((o: string) => write('•  ' + o, { size: 11, indent: 12, gap: 2 }));
+          const opts = (block.value.options || [])
+            .map((o: string, i: number) => `${i === block.value.correctAnswer ? '[x]  ' : '[ ]  '}${o}${i === block.value.correctAnswer ? '   (bonne reponse)' : ''}`)
+            .join('\n');
+          calloutBox({ title: `Quiz — ${block.value.question || ''}`, titleColor: INK, body: opts, bg: BOXBG });
         }
       });
     });
   });
+
+  /* ---- Header + footer on every page ---- */
+  const pages = doc.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i);
+    set('normal', 8, MUTED);
+    doc.text(`${i} / ${pages}`, W / 2, H - 30, { align: 'center' });
+    if (i > 1) {
+      set('normal', 8, MUTED);
+      doc.text(course.title.length > 70 ? course.title.slice(0, 70) + '…' : course.title, M, 34);
+      doc.text('BLACKMIND', W - M, 34, { align: 'right' });
+      doc.setDrawColor(LINE[0], LINE[1], LINE[2]);
+      doc.setLineWidth(0.5);
+      doc.line(M, 42, W - M, 42);
+    }
+  }
 
   doc.save(`${slugify(course.title)}.pdf`);
 };
 
-/* ------------------------------------------------------------------ */
-/* DOCX export (docx lib, loaded on demand)                            */
-/* ------------------------------------------------------------------ */
-
-// Minimal markdown line -> docx runs (handles **bold**, strips `code`/links)
-const mdRuns = (line: string, TextRun: any) => {
-  const clean = line
-    .replace(/`([^`]*)`/g, '$1')
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');
-  return clean.split('**').map((part, i) => new TextRun({ text: part, bold: i % 2 === 1 }));
-};
+/* ================================================================== */
+/* DOCX — styled document with the docx library                       */
+/* ================================================================== */
 
 export const exportCourseDocx = async (course: Course): Promise<void> => {
-  const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import('docx');
+  const docx = await import('docx');
+  const {
+    Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle,
+    Table, TableRow, TableCell, WidthType, Footer, PageNumber, ShadingType,
+  } = docx;
 
-  const children: any[] = [
-    new Paragraph({ text: course.title, heading: HeadingLevel.TITLE }),
-    new Paragraph({ children: [new TextRun({ text: course.description || '', italics: true })] }),
-    new Paragraph({ text: '' }),
-  ];
+  const ACCENT = '4F46E5';
+  const INK = '1A1A1A';
+  const MUTED = '6B7280';
+
+  const runs = (line: string, base: any = {}) =>
+    mdSegments(line).map((s) => new TextRun({ text: s.text, bold: s.bold || base.bold, italics: base.italics, color: base.color, size: base.size }));
+
+  const body: any[] = [];
 
   const pushMarkdown = (md: string) => {
-    for (const raw of String(md || '').split('\n')) {
-      const line = raw.trimEnd();
-      if (!line.trim()) continue;
-      const h = line.match(/^(#{1,4})\s+(.*)/);
-      if (h) {
-        const levels = [HeadingLevel.HEADING_2, HeadingLevel.HEADING_3, HeadingLevel.HEADING_4, HeadingLevel.HEADING_4];
-        children.push(new Paragraph({ text: h[2].replace(/\*\*/g, ''), heading: levels[h[1].length - 1] }));
-      } else if (/^\s*([-*]|\d+\.)\s+/.test(line)) {
-        const text = line.replace(/^\s*([-*]|\d+\.)\s+/, '');
-        children.push(new Paragraph({ children: mdRuns(text, TextRun), bullet: { level: 0 } }));
-      } else if (/^>\s?/.test(line)) {
-        children.push(new Paragraph({ children: [new TextRun({ text: line.replace(/^>\s?/, ''), italics: true })] }));
+    String(md || '').split('\n').forEach((raw) => {
+      const line = mdLineClean(raw);
+      if (!line) return;
+      if (isBullet(line)) {
+        body.push(new Paragraph({ children: runs(stripBullet(line)), bullet: { level: 0 }, spacing: { after: 60 } }));
       } else {
-        children.push(new Paragraph({ children: mdRuns(line, TextRun) }));
+        body.push(new Paragraph({ children: runs(line), alignment: AlignmentType.JUSTIFIED, spacing: { after: 160, line: 300 } }));
       }
-    }
+    });
   };
 
-  (course.modules || []).forEach((mod, mIdx) => {
-    children.push(new Paragraph({ text: `Module ${mIdx + 1} — ${mod.title}`, heading: HeadingLevel.HEADING_1, pageBreakBefore: mIdx > 0 }));
-    (mod.lessons || []).forEach((lesson, lIdx) => {
-      children.push(new Paragraph({ text: `${mIdx + 1}.${lIdx + 1} ${lesson.title}`, heading: HeadingLevel.HEADING_2 }));
-      (lesson.content || []).forEach((block: any) => {
+  // one-cell shaded table used as a callout box
+  const callout = (title: string, titleColor: string, lines: { text: string; bold?: boolean }[], fill: string) => {
+    const children: any[] = [
+      new Paragraph({ children: [new TextRun({ text: title, bold: true, color: titleColor, size: 21 })], spacing: { after: 100 } }),
+      ...lines.map((l) => new Paragraph({ children: [new TextRun({ text: l.text, bold: l.bold, size: 21, color: INK })], spacing: { after: 40 } })),
+    ];
+    return new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      borders: {
+        top: { style: BorderStyle.SINGLE, size: 4, color: 'E5E7EB' },
+        bottom: { style: BorderStyle.SINGLE, size: 4, color: 'E5E7EB' },
+        left: { style: BorderStyle.SINGLE, size: title.startsWith('Quiz') ? 4 : 24, color: title.startsWith('Quiz') ? 'E5E7EB' : ACCENT },
+        right: { style: BorderStyle.SINGLE, size: 4, color: 'E5E7EB' },
+        insideHorizontal: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+        insideVertical: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+      },
+      rows: [new TableRow({
+        children: [new TableCell({
+          shading: { type: ShadingType.CLEAR, color: 'auto', fill },
+          margins: { top: 160, bottom: 160, left: 200, right: 200 },
+          children,
+        })],
+      })],
+    });
+  };
+
+  /* ---- Title block ---- */
+  body.push(new Paragraph({ text: course.title, heading: HeadingLevel.TITLE, spacing: { after: 80 } }));
+  body.push(new Paragraph({
+    children: [new TextRun({ text: [course.category, course.author, today()].filter(Boolean).join('   •   ').toUpperCase(), color: MUTED, size: 18 })],
+    spacing: { after: 160 },
+  }));
+  if (course.description) {
+    body.push(new Paragraph({ children: [new TextRun({ text: mdToText(course.description), italics: true, color: '4B5563', size: 24 })], spacing: { after: 200 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: 'DDDDDD', space: 8 } } }));
+  }
+
+  /* ---- Table of contents ---- */
+  const modules = course.modules || [];
+  if (modules.length) {
+    body.push(new Paragraph({ children: [new TextRun({ text: 'TABLE DES MATIÈRES', bold: true, color: MUTED, size: 18 })], spacing: { before: 160, after: 120 } }));
+    modules.forEach((mod, mi) => {
+      body.push(new Paragraph({ children: [new TextRun({ text: `${String(mi + 1).padStart(2, '0')}.  ${mod.title}`, bold: true, size: 22 })], spacing: { after: 40 } }));
+      (mod.lessons || []).forEach((les, li) =>
+        body.push(new Paragraph({ children: [new TextRun({ text: `${mi + 1}.${li + 1}  ${les.title}`, color: MUTED, size: 20 })], indent: { left: 360 }, spacing: { after: 20 } })));
+    });
+  }
+
+  /* ---- Content ---- */
+  modules.forEach((mod, mi) => {
+    body.push(new Paragraph({ children: [new TextRun({ text: `MODULE ${String(mi + 1).padStart(2, '0')}`, bold: true, color: ACCENT, size: 18 })], pageBreakBefore: true, spacing: { after: 40 } }));
+    body.push(new Paragraph({ text: mod.title, heading: HeadingLevel.HEADING_1, spacing: { after: 120 } }));
+    (mod.lessons || []).forEach((les, li) => {
+      body.push(new Paragraph({ text: `${mi + 1}.${li + 1}  ${les.title}`, heading: HeadingLevel.HEADING_2, spacing: { before: 160, after: 80 } }));
+      (les.content || []).forEach((block: any) => {
         if (block.type === 'text') {
           pushMarkdown(block.value);
-        } else if (block.type === 'insight' && block.value) {
-          children.push(new Paragraph({ children: [new TextRun({ text: `💡 ${block.value.title || 'Insight'}`, bold: true })] }));
-          pushMarkdown(block.value.content);
-        } else if (block.type === 'quiz' && block.value) {
-          children.push(new Paragraph({ children: [new TextRun({ text: `Quiz : ${block.value.question || ''}`, bold: true })] }));
-          (block.value.options || []).forEach((o: string, i: number) => {
-            children.push(new Paragraph({
-              children: [new TextRun({ text: o + (i === block.value.correctAnswer ? '  ✓' : ''), bold: i === block.value.correctAnswer })],
-              bullet: { level: 0 },
-            }));
-          });
         } else if (block.type === 'overview' && block.value?.objectives?.length) {
-          children.push(new Paragraph({ children: [new TextRun({ text: 'Objectifs :', bold: true })] }));
-          block.value.objectives.forEach((o: string) =>
-            children.push(new Paragraph({ text: o, bullet: { level: 0 } })));
+          body.push(new Paragraph({ children: [new TextRun({ text: 'Objectifs pédagogiques', bold: true, color: MUTED, size: 18 })], spacing: { after: 60 } }));
+          block.value.objectives.forEach((ob: string) => body.push(new Paragraph({ children: runs(ob), bullet: { level: 0 }, spacing: { after: 40 } })));
+        } else if (block.type === 'insight' && block.value) {
+          body.push(callout(block.value.title || 'Insight', ACCENT, mdToText(block.value.content).split('\n').filter(Boolean).map((t) => ({ text: t })), 'F4F3FF'));
+          body.push(new Paragraph({ text: '', spacing: { after: 120 } }));
+        } else if (block.type === 'quiz' && block.value) {
+          const lines = (block.value.options || []).map((o: string, i: number) => ({ text: `${i === block.value.correctAnswer ? '✔  ' : '•  '}${o}`, bold: i === block.value.correctAnswer }));
+          body.push(callout(`Quiz — ${block.value.question || ''}`, INK, lines, 'F3F4F6'));
+          body.push(new Paragraph({ text: '', spacing: { after: 120 } }));
         }
       });
     });
   });
 
-  const doc = new Document({ sections: [{ children }] });
+  const doc = new Document({
+    styles: {
+      default: { document: { run: { font: 'Calibri', size: 22, color: INK } } },
+      paragraphStyles: [
+        { id: 'Title', name: 'Title', basedOn: 'Normal', next: 'Normal', run: { size: 52, bold: true, color: INK, font: 'Calibri' }, paragraph: { spacing: { after: 120 } } },
+        { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true, run: { size: 32, bold: true, color: INK, font: 'Calibri' }, paragraph: { spacing: { before: 240, after: 120 }, border: { bottom: { color: 'DDDDDD', space: 6, style: BorderStyle.SINGLE, size: 6 } } } },
+        { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true, run: { size: 26, bold: true, color: '333333', font: 'Calibri' }, paragraph: { spacing: { before: 200, after: 80 } } },
+      ],
+    },
+    sections: [{
+      properties: { page: { margin: { top: 1134, bottom: 1134, left: 1134, right: 1134 } } },
+      footers: {
+        default: new Footer({
+          children: [new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [new TextRun({ children: ['Page ', PageNumber.CURRENT, ' / ', PageNumber.TOTAL_PAGES], color: MUTED, size: 16 })],
+          })],
+        }),
+      },
+      children: body,
+    }],
+  });
+
   const blob = await Packer.toBlob(doc);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
