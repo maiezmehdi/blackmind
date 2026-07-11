@@ -132,7 +132,7 @@ const LearnPage: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-4 space-y-6 no-scrollbar">
           {course.modules.map((mod, mIdx) => (
             <div key={mod.id} className="space-y-2">
-              <h3 className="text-[9px] font-bold uppercase tracking-[0.2em] text-gemini-dim px-2">Module 0{mIdx + 1}</h3>
+              <h3 className="text-[9px] font-bold uppercase tracking-[0.2em] text-gemini-dim px-2">{t('learn.module')} 0{mIdx + 1}</h3>
               <div className="space-y-1">
                 {mod.lessons.map((lesson, lIdx) => {
                   const isActive = !showCompletionState && mIdx === currentModuleIdx && lIdx === currentLessonIdx;
@@ -156,9 +156,9 @@ const LearnPage: React.FC = () => {
               onClick={handleRemix}
               className={`flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] transition-all border ${remixSuccess ? 'bg-green-500 border-green-500 text-white' : 'bg-gemini-surface border-gemini-border text-gemini-accent hover:border-gemini-accent'}`}
             >
-              <Copy size={14} /> {remixSuccess ? 'Copié !' : 'Remixer'}
+              <Copy size={14} /> {remixSuccess ? t('learn.remixed') : t('learn.remix')}
             </button>
-            <button onClick={() => setIsAssistantOpen(true)} className="flex items-center gap-2 text-gemini-accent bg-gemini-surface border border-gemini-border px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] shadow-sm"><Zap size={14} /> IA</button>
+            <button onClick={() => setIsAssistantOpen(true)} className="flex items-center gap-2 text-gemini-accent bg-gemini-surface border border-gemini-border px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] shadow-sm"><Zap size={14} /> {t('learn.ai')}</button>
           </div>
         </header>
 
@@ -166,13 +166,13 @@ const LearnPage: React.FC = () => {
           {showCompletionState ? (
             <div className="max-w-3xl mx-auto py-12 text-center space-y-8">
               <Award size={64} className="mx-auto text-gemini-accent" />
-              <h2 className="text-4xl font-bold font-outfit text-gemini-accent">Bravo !</h2>
-              <button onClick={() => navigate('/')} className="px-10 py-4 bg-gemini-accent text-gemini-bg rounded-2xl font-bold text-xs uppercase tracking-[0.2em]">Retour au Tableau de Bord</button>
+              <h2 className="text-4xl font-bold font-outfit text-gemini-accent">{t('learn.congrats')}</h2>
+              <button onClick={() => navigate('/')} className="px-10 py-4 bg-gemini-accent text-gemini-bg rounded-2xl font-bold text-xs uppercase tracking-[0.2em]">{t('learn.dashboardBtn')}</button>
             </div>
           ) : (
             <article ref={contentRef} className="max-w-3xl mx-auto animate-in fade-in duration-500 pb-32">
               <div className="mb-12 space-y-6">
-                <nav className="text-[10px] text-gemini-dim font-bold uppercase tracking-[0.2em]">Leçon 0{currentLessonIdx + 1}</nav>
+                <nav className="text-[10px] text-gemini-dim font-bold uppercase tracking-[0.2em]">{t('learn.lesson')} 0{currentLessonIdx + 1}</nav>
                 <h1 className="text-3xl md:text-6xl font-bold font-outfit text-gemini-accent leading-tight">{currentLesson?.title}</h1>
               </div>
 
@@ -214,10 +214,10 @@ const LearnPage: React.FC = () => {
 
               <footer className="pt-16 border-t border-gemini-border flex items-center justify-between gap-8 mt-24">
                 <button onClick={handlePrev} disabled={currentModuleIdx === 0 && currentLessonIdx === 0} className="flex items-center gap-3 text-gemini-dim disabled:opacity-10">
-                   <ChevronLeft size={24} /> Précédent
+                   <ChevronLeft size={24} /> {t('learn.prev')}
                 </button>
                 <button onClick={handleNext} className="bg-gemini-accent text-gemini-bg px-12 py-5 rounded-[2rem] font-bold flex items-center gap-4 shadow-2xl hover:scale-105 active:scale-95 transition-all">
-                  <span className="uppercase tracking-[0.2em] text-[11px] font-black">{currentModuleIdx === course.modules.length - 1 && currentLessonIdx === currentModule.lessons.length - 1 ? 'Terminer' : 'Suivant'}</span>
+                  <span className="uppercase tracking-[0.2em] text-[11px] font-black">{currentModuleIdx === course.modules.length - 1 && currentLessonIdx === currentModule.lessons.length - 1 ? t('learn.finish') : t('learn.next')}</span>
                   <ArrowRight size={20} />
                 </button>
               </footer>

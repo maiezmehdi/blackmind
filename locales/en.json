@@ -9,7 +9,29 @@
     "confirmDeleteCourse": "Are you sure you want to delete this course?",
     "searchCourse": "Search a course...",
     "anonymous": "Anonymous",
-    "general": "General"
+    "general": "General",
+    "confirm": "Confirm",
+    "confirmDelete": "Are you sure you want to delete this item?",
+    "confirmDeleteTitle": "Delete \"{title}\"?",
+    "confirmDeleteDesc": "This action is irreversible. The content will be permanently erased.",
+    "share": "Share",
+    "invite": "Invite",
+    "create": "Create",
+    "back": "Back",
+    "next": "Next",
+    "finish": "Finish",
+    "previous": "Previous",
+    "continue": "Continue",
+    "start": "Start",
+    "close": "Close",
+    "error": "Error",
+    "success": "Success",
+    "public": "Public",
+    "private": "Private",
+    "generate": "Generate",
+    "publish": "Publish",
+    "export": "Export",
+    "buy": "Buy"
   },
   "nav": {
     "explorer": "Explorer",
@@ -17,7 +39,8 @@
     "marketplace": "Marketplace",
     "progress": "Progress",
     "workspaces": "Workspaces",
-    "settings": "Settings"
+    "settings": "Settings",
+    "pricing": "Plans"
   },
   "days": {
     "mon": "Mon",
@@ -53,13 +76,22 @@
     "suggestPrefill": "Create a complete, structured course about: {title}",
     "emptyTitle": "No courses yet",
     "emptyDesc": "Get started: describe a topic and let the AI build your first course.",
-    "emptyCta": "Create my first course"
+    "emptyCta": "Create my first course",
+    "heroTitle": "Turn your expertise into content that",
+    "heroHighlight": "captivates.",
+    "finished": "Finished"
   },
   "progress": {
     "title": "My Progress",
     "subtitle": "Track your evolution",
     "dailyActivity": "Daily Activity",
-    "goals": "Weekly Goals"
+    "goals": "Weekly Goals",
+    "month": "Month",
+    "courses": "Courses",
+    "hours": "Hours",
+    "certificates": "Certificates",
+    "streak": "Streak",
+    "global": "Overall progress"
   },
   "settings": {
     "title": "Settings",
@@ -90,7 +122,11 @@
       "linksDesc": "Better visibility of clickable elements.",
       "textSize": "Text Size",
       "spacing": "Spacing",
-      "reset": "Reset Settings"
+      "reset": "Reset Settings",
+      "colorNone": "None",
+      "protanopia": "Protanopia",
+      "deuteranopia": "Deuteranopia",
+      "tritanopia": "Tritanopia"
     },
     "username": "Username",
     "email": "Email",
@@ -139,7 +175,10 @@
     "appearance": {
       "fontDesc": "Outfit (Interface) / Inter (Body)",
       "assistantDesc": "Show the assistant on all pages."
-    }
+    },
+    "integrationsTitle": "Cloud Services & Sync",
+    "integrationsDesc": "Connect Blackmind to your favorite tools to sync your content.",
+    "inDevelopment": "Section under development"
   },
   "create": {
     "welcome": "Welcome to Blackmind! 👋 I'm delighted to help you design your next exceptional course.",
@@ -212,7 +251,19 @@
       "marketing": "Create a marketing course",
       "python": "Teach Python basics",
       "photography": "Design a photography workshop"
-    }
+    },
+    "viewResult": "View result",
+    "remixActivated": "Great! Remix mode activated for \"{title}\". Where do we start? 😊",
+    "storyGenerated": "Structure generated successfully! ({count} scenes).",
+    "generationError": "Sorry, an error occurred during generation. Please try again.",
+    "imagePromptUser": "Generate an image for: {prompt}",
+    "imageGenerated": "Here is the generated image:",
+    "shareDesc": "Choose a workspace to share this course with your team.",
+    "exportDesc": "Prepare a high-definition archive of your course.",
+    "optimizing": "Optimizing the pedagogical structure",
+    "customInstruction": "Custom instruction",
+    "orCustomInstruction": "Or custom instruction",
+    "customOption": "Custom option"
   },
   "learn": {
     "loading": "Loading your course...",
@@ -232,7 +283,10 @@
     "prevContent": "Previous content",
     "step": "Step",
     "finish": "Finish",
-    "next": "Next"
+    "next": "Next",
+    "module": "Module",
+    "lesson": "Lesson",
+    "ai": "AI"
   },
   "workspace": {
     "loading": "Loading...",
@@ -338,11 +392,48 @@
     "design": "Design",
     "business": "Business",
     "languages": "Languages",
-    "science": "Science"
+    "science": "Science",
+    "academic": "Academic"
   },
   "header": {
     "notifications": "Notifications",
     "noNotifications": "No notifications yet.",
     "account": "My account"
+  },
+  "auth": {
+    "welcomeTitle": "Welcome to Blackmind",
+    "welcomeSubtitle": "The AI-powered course creation platform.",
+    "loginTitle": "Sign in",
+    "signupTitle": "Create an account",
+    "emailLabel": "Email address",
+    "passwordLabel": "Password",
+    "nameLabel": "Full name",
+    "forgotPassword": "Forgot password?",
+    "loginButton": "Sign in",
+    "signupButton": "Sign up",
+    "googleButton": "Continue with Google",
+    "noAccount": "Don't have an account yet?",
+    "hasAccount": "Already have an account?",
+    "terms": "By continuing, you agree to our Terms of Service.",
+    "loggingIn": "Signing in...",
+    "signingUp": "Creating...",
+    "loginSubtitle": "Access your learning space.",
+    "signupSubtitle": "Join the Blackmind community.",
+    "or": "Or"
+  },
+  "overview": {
+    "courseOverview": "Course overview",
+    "moduleIntro": "Module overview",
+    "objectives": "Learning objectives",
+    "prerequisites": "Prerequisites",
+    "duration": "Estimated duration",
+    "level": "Level",
+    "accessibilityHints": "Accessibility hints",
+    "subtitles": "Subtitles available",
+    "arExperience": "Augmented Reality experience"
+  },
+  "ar": {
+    "title": "ARCore 3D model",
+    "dropHint": "Drop a .GLB file here"
   }
 }

@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Box, Upload, X, BoxSelect, Maximize2 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface ArModelBlockProps {
   value: string;
@@ -8,6 +9,7 @@ interface ArModelBlockProps {
 }
 
 const ArModelBlock: React.FC<ArModelBlockProps> = ({ value, onUpload, isEditable }) => {
+  const { t } = useLanguage();
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -55,8 +57,8 @@ const ArModelBlock: React.FC<ArModelBlockProps> = ({ value, onUpload, isEditable
           <BoxSelect size={32} />
         </div>
         <div className="text-center">
-          <p className="text-sm font-bold text-gemini-text">Modèle 3D ARCore</p>
-          <p className="text-[10px] text-gemini-dim uppercase tracking-widest mt-1 font-bold">Glissez un fichier .GLB ici</p>
+          <p className="text-sm font-bold text-gemini-text">{t('ar.title')}</p>
+          <p className="text-[10px] text-gemini-dim uppercase tracking-widest mt-1 font-bold">{t('ar.dropHint')}</p>
         </div>
         <input 
           type="file" 

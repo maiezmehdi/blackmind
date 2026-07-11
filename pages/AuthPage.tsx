@@ -97,7 +97,7 @@ const AuthPage: React.FC = () => {
               {isLogin ? t('auth.loginTitle') : t('auth.signupTitle')}
             </h2>
             <p className="text-gemini-dim">
-              {isLogin ? "Accédez à votre espace d'apprentissage." : "Rejoignez la communauté Blackmind."}
+              {isLogin ? t('auth.loginSubtitle') : t('auth.signupSubtitle')}
             </p>
           </div>
 
@@ -174,7 +174,7 @@ const AuthPage: React.FC = () => {
               <div className="w-full border-t border-gemini-border"></div>
             </div>
             <div className="relative flex justify-center text-xs">
-              <span className="bg-gemini-bg px-4 text-gemini-dim uppercase tracking-wider font-medium">Ou</span>
+              <span className="bg-gemini-bg px-4 text-gemini-dim uppercase tracking-wider font-medium">{t('auth.or')}</span>
             </div>
           </div>
 

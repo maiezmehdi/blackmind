@@ -49,7 +49,10 @@
     "hasAccount": "Déjà un compte ?",
     "terms": "En continuant, vous acceptez nos Conditions d'utilisation.",
     "loggingIn": "Connexion...",
-    "signingUp": "Création..."
+    "signingUp": "Création...",
+    "loginSubtitle": "Accédez à votre espace d'apprentissage.",
+    "signupSubtitle": "Rejoignez la communauté Blackmind.",
+    "or": "Ou"
   },
   "nav": {
     "explorer": "Explorer",
@@ -184,8 +187,19 @@
       "linksDesc": "Meilleure visibilité des éléments cliquables.",
       "textSize": "Taille du texte",
       "spacing": "Espacement",
-      "reset": "Réinitialiser les paramètres"
-    }
+      "reset": "Réinitialiser les paramètres",
+      "colorNone": "Non",
+      "protanopia": "Protanopie",
+      "deuteranopia": "Deutéranopie",
+      "tritanopia": "Tritanopie"
+    },
+    "general": "Général",
+    "dark": "Sombre",
+    "light": "Clair",
+    "oled": "OLED",
+    "integrationsTitle": "Services Cloud & Sync",
+    "integrationsDesc": "Connectez Blackmind à vos outils favoris pour synchroniser vos contenus.",
+    "inDevelopment": "Section en développement"
   },
   "create": {
     "welcome": "Bienvenue sur Blackmind ! 👋 Je suis ravi de vous aider à concevoir votre prochain cours d'exception. Dites-moi tout sur votre sujet, je vous écoute avec enthousiasme !",
@@ -258,7 +272,19 @@
       "marketing": "Créer un cours de marketing",
       "python": "Enseigner les bases de Python",
       "photography": "Concevoir un atelier photo"
-    }
+    },
+    "viewResult": "Voir le résultat",
+    "remixActivated": "Super ! Mode Remix activé pour « {title} ». On commence par quoi ? 😊",
+    "storyGenerated": "Structure générée avec succès ! ({count} scènes).",
+    "generationError": "Désolé, une erreur est survenue lors de la génération. Veuillez réessayer.",
+    "imagePromptUser": "Génère moi une image pour : {prompt}",
+    "imageGenerated": "Voici l'image générée :",
+    "shareDesc": "Choisissez un espace pour partager ce cours avec votre équipe.",
+    "exportDesc": "Préparez une archive haute définition de votre cours.",
+    "optimizing": "Optimisation de la structure pédagogique",
+    "customInstruction": "Instruction personnalisée",
+    "orCustomInstruction": "Ou instruction personnalisée",
+    "customOption": "Option personnalisée"
   },
   "learn": {
     "loading": "Chargement de votre cours...",
@@ -278,7 +304,10 @@
     "prevContent": "Contenu antérieur",
     "step": "Étape",
     "finish": "Terminer",
-    "next": "Suivant"
+    "next": "Suivant",
+    "module": "Module",
+    "lesson": "Leçon",
+    "ai": "IA"
   },
   "workspace": {
     "loading": "Chargement...",
@@ -384,11 +413,27 @@
     "design": "Design",
     "business": "Business",
     "languages": "Langues",
-    "science": "Sciences"
+    "science": "Sciences",
+    "academic": "Académique"
   },
   "header": {
     "notifications": "Notifications",
     "noNotifications": "Aucune notification pour le moment.",
     "account": "Mon compte"
+  },
+  "overview": {
+    "courseOverview": "Aperçu du cours",
+    "moduleIntro": "Présentation du Module",
+    "objectives": "Objectifs pédagogiques",
+    "prerequisites": "Prérequis",
+    "duration": "Durée estimée",
+    "level": "Niveau",
+    "accessibilityHints": "Indications accessibilité",
+    "subtitles": "Sous-titres disponibles",
+    "arExperience": "Expérience Réalité Augmentée"
+  },
+  "ar": {
+    "title": "Modèle 3D ARCore",
+    "dropHint": "Glissez un fichier .GLB ici"
   }
 }

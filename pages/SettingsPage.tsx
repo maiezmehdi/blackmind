@@ -208,8 +208,8 @@ const SettingsPage: React.FC = () => {
                 <Cloud size={24} />
               </div>
               <div>
-                <h2 className="text-xl font-bold font-outfit text-gemini-accent">Services Cloud & Sync</h2>
-                <p className="text-gemini-dim text-sm mt-1">Connectez Blackmind à vos outils favoris pour synchroniser vos contenus.</p>
+                <h2 className="text-xl font-bold font-outfit text-gemini-accent">{t('settings.integrationsTitle')}</h2>
+                <p className="text-gemini-dim text-sm mt-1">{t('settings.integrationsDesc')}</p>
               </div>
             </div>
 
@@ -339,10 +339,10 @@ const SettingsPage: React.FC = () => {
                       onChange={(e) => updateAccessibility({ colorBlindMode: e.target.value as any })}
                       className="bg-gemini-bg border border-gemini-border rounded-lg text-[10px] font-bold uppercase py-1 px-2 text-gemini-text outline-none focus:border-gemini-accent"
                     >
-                      <option value="none">Non</option>
-                      <option value="protanopia">Protanopie</option>
-                      <option value="deuteranopia">Deutéranopie</option>
-                      <option value="tritanopia">Tritanopie</option>
+                      <option value="none">{tGlobal('settings.accessibility.colorNone')}</option>
+                      <option value="protanopia">{tGlobal('settings.accessibility.protanopia')}</option>
+                      <option value="deuteranopia">{tGlobal('settings.accessibility.deuteranopia')}</option>
+                      <option value="tritanopia">{tGlobal('settings.accessibility.tritanopia')}</option>
                     </select>
                   } 
                 />
@@ -497,7 +497,7 @@ const SettingsPage: React.FC = () => {
         );
 
       default:
-        return <div className="py-20 text-center text-gemini-dim uppercase text-[10px] font-bold tracking-widest">Section en développement</div>;
+        return <div className="py-20 text-center text-gemini-dim uppercase text-[10px] font-bold tracking-widest">{t('settings.inDevelopment')}</div>;
     }
   };
 

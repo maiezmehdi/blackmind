@@ -17,8 +17,8 @@ const CourseMetadataCard: React.FC<CourseMetadataCardProps> = ({ data, t, classN
           <Layers size={24} />
         </div>
         <div>
-          <h3 className="text-xl font-bold font-outfit text-gemini-accent">{data.moduleTitle || "Aperçu du cours"}</h3>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gemini-dim">Présentation du Module</p>
+          <h3 className="text-xl font-bold font-outfit text-gemini-accent">{data.moduleTitle || t('overview.courseOverview')}</h3>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gemini-dim">{t('overview.moduleIntro')}</p>
         </div>
       </div>
 
@@ -26,7 +26,7 @@ const CourseMetadataCard: React.FC<CourseMetadataCardProps> = ({ data, t, classN
         <div className="space-y-6">
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gemini-accent">
-              <Target size={14} /> Objectifs pédagogiques
+              <Target size={14} /> {t('overview.objectives')}
             </div>
             <ul className="space-y-2">
               {data.objectives?.map((obj: string, i: number) => (
@@ -40,7 +40,7 @@ const CourseMetadataCard: React.FC<CourseMetadataCardProps> = ({ data, t, classN
 
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gemini-accent">
-              <Brain size={14} /> Prérequis
+              <Brain size={14} /> {t('overview.prerequisites')}
             </div>
             <div className="flex flex-wrap gap-2">
               {data.prerequisites?.map((pre: string, i: number) => (
@@ -56,13 +56,13 @@ const CourseMetadataCard: React.FC<CourseMetadataCardProps> = ({ data, t, classN
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-gemini-bg/50 p-4 rounded-2xl border border-gemini-border">
               <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-gemini-dim mb-1">
-                <Clock size={12} /> Durée estimée
+                <Clock size={12} /> {t('overview.duration')}
               </div>
               <p className="text-lg font-bold text-gemini-accent">{data.duration}</p>
             </div>
             <div className="bg-gemini-bg/50 p-4 rounded-2xl border border-gemini-border">
               <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-gemini-dim mb-1">
-                <Zap size={12} /> Niveau
+                <Zap size={12} /> {t('overview.level')}
               </div>
               <p className="text-lg font-bold text-gemini-accent">{data.level}</p>
             </div>
@@ -70,7 +70,7 @@ const CourseMetadataCard: React.FC<CourseMetadataCardProps> = ({ data, t, classN
 
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gemini-accent">
-              <Accessibility size={14} /> Indications accessibilité
+              <Accessibility size={14} /> {t('overview.accessibilityHints')}
             </div>
             <div className="grid grid-cols-4 gap-2">
               <div 
@@ -86,13 +86,13 @@ const CourseMetadataCard: React.FC<CourseMetadataCardProps> = ({ data, t, classN
                 <Volume2 size={20} />
               </div>
               <div 
-                title="Sous-titres disponibles"
+                title={t('overview.subtitles')}
                 className={`flex items-center justify-center p-3 rounded-xl border transition-all ${data.accessibility?.subtitles ? 'bg-gemini-accent/10 border-gemini-accent/20 text-gemini-accent' : 'bg-gemini-bg border-gemini-border text-gemini-dim opacity-30'}`}
               >
                 <MessageSquare size={20} />
               </div>
               <div 
-                title="Expérience Réalité Augmentée"
+                title={t('overview.arExperience')}
                 className={`flex items-center justify-center p-3 rounded-xl border transition-all ${data.accessibility?.ar ? 'bg-gemini-accent/10 border-gemini-accent/20 text-gemini-accent' : 'bg-gemini-bg border-gemini-border text-gemini-dim opacity-30'}`}
               >
                 <BoxSelect size={20} />

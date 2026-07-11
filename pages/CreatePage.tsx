@@ -125,7 +125,7 @@ const CourseMetadataCard: React.FC<{ data: any, t: any }> = ({ data, t }) => {
         </div>
         <div>
           <h3 className="text-xl font-bold font-outfit text-gemini-accent">{data.moduleTitle || "Aperçu du cours"}</h3>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gemini-dim">Présentation du Module</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gemini-dim">{t('overview.moduleIntro')}</p>
         </div>
       </div>
 
@@ -342,7 +342,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
       const courseToRemix = courses.find(c => c.id === remixId);
       if (courseToRemix) {
         setGeneratedCourse(courseToRemix);
-        setMessages(prev => [...prev, { role: 'assistant', content: `Super ! Mode Remix activé pour "${courseToRemix.title}". On commence par quoi ? 😊` }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: t('create.remixActivated', { title: courseToRemix.title }) }]);
       }
     }
   }, [searchParams, courses]);
@@ -588,7 +588,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
         let responseData = JSON.parse(cleanResponse);
         setGeneratedCourse(null);
         setGeneratedStory(responseData);
-        setMessages(prev => [...prev, { role: 'assistant', content: `Structure générée avec succès ! (${responseData.modules.length} scènes).`, suggestions: ["__ACTION_PREVIEW__"], timestamp: new Date() }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: t('create.storyGenerated', { count: responseData.modules.length }), suggestions: ["__ACTION_PREVIEW__"], timestamp: new Date() }]);
       } else {
         const response = await generateCourseStructure(activePrompt, isThinkingMode, contentLanguage);
         const cleanResponse = response.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -615,7 +615,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
       }
     } catch (err: any) {
       setError("Erreur de génération.");
-      setMessages(prev => [...prev, { role: 'assistant', content: "Désolé, une erreur est survenue lors de la génération. Veuillez réessayer.", timestamp: new Date() }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: t('create.generationError'), timestamp: new Date() }]);
     } finally {
       setIsGenerating(false);
     }
@@ -638,8 +638,8 @@ const CreatePage: React.FC<CreatePageProps> = () => {
       const imageUrl = await generateAiBlock('image', customPrompt, { thinking: isThinkingMode });
       if (imageUrl) {
         setMessages(prev => [...prev, 
-          { role: 'user', content: `Génère moi une image pour : ${customPrompt}`, timestamp: new Date() }, 
-          { role: 'assistant', content: "Voici l'image générée :", imageUrl, timestamp: new Date() }
+          { role: 'user', content: t('create.imagePromptUser', { prompt: customPrompt }), timestamp: new Date() }, 
+          { role: 'assistant', content: t('create.imageGenerated'), imageUrl, timestamp: new Date() }
         ]);
       }
       setIsAiModalOpen(false);
@@ -1122,7 +1122,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
           className="w-full flex items-center gap-3 px-3 py-2 bg-gemini-accent/5 rounded-xl group hover:bg-gemini-accent/10 transition-colors"
          >
            <MoreHorizontal size={14} className="text-gemini-accent" />
-           <span className="text-[10px] font-bold uppercase tracking-widest text-gemini-accent">Option personnalisée</span>
+           <span className="text-[10px] font-bold uppercase tracking-widest text-gemini-accent">{t('create.customOption')}</span>
          </button>
       </div>
     </div>
@@ -1364,14 +1364,14 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                        </div>
                        <div className="relative flex items-center py-2">
                           <div className="flex-grow border-t border-gemini-border"></div>
-                          <span className="flex-shrink mx-4 text-[9px] font-bold text-gemini-dim uppercase tracking-widest">Ou instruction personnalisée</span>
+                          <span className="flex-shrink mx-4 text-[9px] font-bold text-gemini-dim uppercase tracking-widest">{t('create.orCustomInstruction')}</span>
                           <div className="flex-grow border-t border-gemini-border"></div>
                        </div>
                     </div>
                   )}
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim ml-1">Instruction personnalisée</label>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim ml-1">{t('create.customInstruction')}</label>
                     <div className="relative">
                       <textarea 
                         autoFocus
@@ -1444,7 +1444,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
             <div className="space-y-4">
               <div className="p-4 bg-gemini-accent/5 border border-gemini-accent/10 rounded-2xl flex items-center gap-4">
                 <Briefcase className="text-gemini-accent" size={24} />
-                <p className="text-sm text-gemini-text">Choisissez un espace pour partager ce cours avec votre équipe.</p>
+                <p className="text-sm text-gemini-text">{t('create.shareDesc')}</p>
               </div>
               <div className="max-h-60 overflow-y-auto no-scrollbar space-y-2">
                 {workspaces.map(ws => (
@@ -1474,7 +1474,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
             </div>
             <div className="space-y-2">
               <h3 className="text-2xl font-bold font-outfit text-gemini-text">Exporter le savoir</h3>
-              <p className="text-gemini-dim text-sm">Préparez une archive haute définition de votre cours.</p>
+              <p className="text-gemini-dim text-sm">{t('create.exportDesc')}</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <button className="flex flex-col items-center gap-3 p-6 rounded-[2rem] border border-gemini-border hover:border-gemini-accent hover:bg-gemini-accent/5 transition-all group">
@@ -1762,7 +1762,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                   </div>
                   <div className="space-y-1">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gemini-accent">{t('create.generating')}</p>
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-gemini-dim">Optimisation de la structure pédagogique</p>
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-gemini-dim">{t('create.optimizing')}</p>
                   </div>
                 </div>
               )}
