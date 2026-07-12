@@ -233,7 +233,7 @@ const replaceNthOccurrence = (source: string, search: string, replacement: strin
 const CreatePage: React.FC<CreatePageProps> = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { addCourse, updateCourse, deleteCourse, courses, workspaces, sendInvitation, currentUser, t } = useCourseContext();
+  const { addCourse, updateCourse, deleteCourse, courses, workspaces, sendInvitation, shareCourse, sellCourse, currentUser, t } = useCourseContext();
   const [view, setView] = useState<'chat' | 'preview'>('chat');
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [prompt, setPrompt] = useState('');
@@ -276,7 +276,14 @@ const CreatePage: React.FC<CreatePageProps> = () => {
   const [exportingFormat, setExportingFormat] = useState<'pdf' | 'docx' | null>(null);
   const [isSellModalOpen, setIsSellModalOpen] = useState(false);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
-  
+  const [exportedFormat, setExportedFormat] = useState<'pdf' | 'docx' | null>(null);
+  const [sellPrice, setSellPrice] = useState('');
+  const [isSelling, setIsSelling] = useState(false);
+  const [sellSuccess, setSellSuccess] = useState(false);
+  const [sharingWorkspaceId, setSharingWorkspaceId] = useState<string | null>(null);
+  const [shareSuccessId, setShareSuccessId] = useState<string | null>(null);
+  const [inviteSuccessEmail, setInviteSuccessEmail] = useState('');
+
   const [inviteEmail, setInviteEmail] = useState('');
   const [wsSearchTerm, setWsSearchTerm] = useState('');
   const [isAddModuleModalOpen, setIsAddModuleModalOpen] = useState(false);
@@ -1195,11 +1202,16 @@ const CreatePage: React.FC<CreatePageProps> = () => {
 
   const handleExportCourse = async (format: 'pdf' | 'docx') => {
     if (!generatedCourse || exportingFormat) return;
+    setIsDownloadModalOpen(true);
     setExportingFormat(format);
     try {
       if (format === 'pdf') await exportCoursePdf(generatedCourse);
       else await exportCourseDocx(generatedCourse);
-      setIsDownloadModalOpen(false);
+      setExportedFormat(format);
+      setTimeout(() => {
+        setExportedFormat(null);
+        setIsDownloadModalOpen(false);
+      }, 1500);
     } catch (e) {
       console.error('Export failed', e);
     } finally {
@@ -1493,19 +1505,283 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                 <p className="text-sm text-gemini-text">{t('create.shareDesc')}</p>
               </div>
               <div className="max-h-60 overflow-y-auto no-scrollbar space-y-2">
-                {workspaces.map(ws => (
-                  <button key={ws.id} className="w-full flex items-center justify-between p-4 rounded-2xl border border-gemini-border hover:bg-gemini-accent/5 hover:border-gemini-accent transition-all group">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gemini-bg rounded-xl flex items-center justify-center text-gemini-dim group-hover:text-gemini-accent font-bold uppercase">
-                        {ws.name.charAt(0)}
+                {workspaces.length === 0 && (
+                  <div className="text-center py-8 space-y-3">
+                    <p className="text-sm text-gemini-dim">{t('create.noWorkspaces')}</p>
+                    <button
+                      onClick={() => { setIsShareModalOpen(false); navigate('/workspaces'); }}
+                      className="px-5 py-2.5 bg-gemini-accent text-gemini-bg rounded-xl text-[10px] font-bold uppercase tracking-widest hover:scale-105 transition-all"
+                    >
+                      {t('create.createWorkspace')}
+                    </button>
+                  </div>
+                )}
+                {workspaces.map(ws => {
+                  const isCurrent = generatedCourse?.workspace === ws.id;
+                  const justShared = shareSuccessId === ws.id;
+                  return (
+                    <button
+                      key={ws.id}
+                      disabled={sharingWorkspaceId === ws.id}
+                      onClick={async () => {
+                        if (!generatedCourse) return;
+                        setSharingWorkspaceId(ws.id);
+                        updateCourse({ ...generatedCourse, workspace: isCurrent ? undefined : ws.id });
+                        setGeneratedCourse(prev => prev ? { ...prev, workspace: isCurrent ? undefined : ws.id } : prev);
+                        await new Promise(r => setTimeout(r, 400));
+                        setSharingWorkspaceId(null);
+                        if (!isCurrent) {
+                          setShareSuccessId(ws.id);
+                          setTimeout(() => setShareSuccessId(null), 1800);
+                        }
+                      }}
+                      className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all group disabled:opacity-60 ${isCurrent ? 'border-gemini-accent bg-gemini-accent/5' : 'border-gemini-border hover:bg-gemini-accent/5 hover:border-gemini-accent'}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gemini-bg rounded-xl flex items-center justify-center text-gemini-dim group-hover:text-gemini-accent font-bold uppercase">
+                          {ws.name.charAt(0)}
+                        </div>
+                        <div className="text-left">
+                          <span className="font-bold text-gemini-text block">{ws.name}</span>
+                          {isCurrent && <span className="text-[9px] uppercase tracking-widest text-gemini-accent font-bold">{t('create.currentlyShared')}</span>}
+                        </div>
                       </div>
-                      <span className="font-bold text-gemini-text">{ws.name}</span>
-                    </div>
-                    <ArrowRight size={16} className="text-gemini-dim group-hover:text-gemini-accent" />
-                  </button>
-                ))}
+                      {sharingWorkspaceId === ws.id ? (
+                        <Loader2 size={16} className="animate-spin text-gemini-accent" />
+                      ) : justShared ? (
+                        <CheckCircle2 size={16} className="text-gemini-accent" />
+                      ) : (
+                        <ArrowRight size={16} className="text-gemini-dim group-hover:text-gemini-accent" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* INVITE COLLABORATORS MODAL */}
+      {isTeamModalOpen && generatedCourse && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => { setIsTeamModalOpen(false); setInviteEmail(''); setInviteSuccessEmail(''); }}></div>
+          <div className="relative w-full max-w-md bg-gemini-surface border border-gemini-border rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 p-8 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between mb-6 shrink-0">
+              <h3 className="text-xl font-bold text-gemini-text font-outfit">{t('create.inviteTitle')}</h3>
+              <button onClick={() => { setIsTeamModalOpen(false); setInviteEmail(''); setInviteSuccessEmail(''); }} className="p-2 text-gemini-dim hover:text-gemini-text transition-colors"><X size={20}/></button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const email = inviteEmail.trim();
+                if (!email || !generatedCourse) return;
+                const namePart = email.split('@')[0];
+                const invited: UserProfile = {
+                  id: `invited-${Math.random().toString(36).substr(2, 9)}`,
+                  name: namePart,
+                  initials: namePart.slice(0, 2).toUpperCase(),
+                  color: 'bg-gemini-dim',
+                  email,
+                  subscription: 'free',
+                };
+                shareCourse(generatedCourse.id, invited);
+                setGeneratedCourse(prev => prev ? { ...prev, collaborators: [...(prev.collaborators || []), invited] } : prev);
+                setInviteSuccessEmail(email);
+                setInviteEmail('');
+                setTimeout(() => setInviteSuccessEmail(''), 2500);
+              }}
+              className="flex gap-2 mb-6 shrink-0"
+            >
+              <input
+                type="email"
+                required
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder={t('create.inviteEmailPlaceholder')}
+                className="flex-1 bg-gemini-bg border border-gemini-border rounded-2xl px-4 py-3 text-sm outline-none focus:border-gemini-accent text-gemini-text placeholder:text-gemini-dim/50"
+              />
+              <button type="submit" className="px-5 py-3 bg-gemini-accent text-gemini-bg rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:scale-105 transition-all shrink-0">
+                {t('common.invite')}
+              </button>
+            </form>
+
+            {inviteSuccessEmail && (
+              <div className="mb-4 p-3 bg-gemini-accent/10 border border-gemini-accent/20 rounded-xl flex items-center gap-2 text-xs text-gemini-accent font-medium animate-in fade-in slide-in-from-top-2 duration-300 shrink-0">
+                <CheckCircle2 size={16} /> {t('create.inviteSent', { email: inviteSuccessEmail })}
+              </div>
+            )}
+
+            {allSuggestedContacts.length > 0 && (
+              <div className="space-y-2 mb-4 overflow-y-auto no-scrollbar">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim">{t('create.suggestedContacts')}</p>
+                {allSuggestedContacts.map(contact => {
+                  const alreadyIn = (generatedCourse.collaborators || []).some(c => c.id === contact.id);
+                  return (
+                    <button
+                      key={contact.id}
+                      disabled={alreadyIn}
+                      onClick={() => {
+                        shareCourse(generatedCourse.id, contact);
+                        setGeneratedCourse(prev => prev ? { ...prev, collaborators: [...(prev.collaborators || []), contact] } : prev);
+                      }}
+                      className="w-full flex items-center justify-between p-3 rounded-2xl border border-gemini-border hover:bg-gemini-accent/5 hover:border-gemini-accent transition-all group disabled:opacity-50 disabled:hover:bg-transparent"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0 ${contact.color || 'bg-gemini-accent'}`}>
+                          {contact.initials}
+                        </div>
+                        <div className="text-left">
+                          <span className="font-bold text-gemini-text text-sm block">{contact.name}</span>
+                          <span className="text-[10px] text-gemini-dim">{contact.email}</span>
+                        </div>
+                      </div>
+                      {alreadyIn ? <CheckCircle2 size={16} className="text-gemini-accent" /> : <Plus size={16} className="text-gemini-dim group-hover:text-gemini-accent" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {(generatedCourse.collaborators || []).length > 0 && (
+              <div className="pt-4 border-t border-gemini-border space-y-2 overflow-y-auto no-scrollbar">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim">{t('create.currentCollaborators')}</p>
+                {(generatedCourse.collaborators || []).map(c => (
+                  <div key={c.id} className="flex items-center gap-3 px-1 py-1.5">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-[10px] shrink-0 ${c.color || 'bg-gemini-accent'}`}>
+                      {c.initials}
+                    </div>
+                    <span className="text-xs text-gemini-text">{c.name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* SEND BY EMAIL MODAL */}
+      {isEmailModalOpen && generatedCourse && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsEmailModalOpen(false)}></div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const fd = new FormData(e.currentTarget);
+              const to = String(fd.get('to') || '').trim();
+              const note = String(fd.get('note') || '').trim();
+              const subject = t('create.emailSubject', { title: generatedCourse.title });
+              const bodyLines = [note, '', t('create.emailBodyIntro', { title: generatedCourse.title }), generatedCourse.description || ''].filter(Boolean);
+              const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join('\n'))}`;
+              window.location.href = mailto;
+              setIsEmailModalOpen(false);
+            }}
+            className="relative w-full max-w-md bg-gemini-surface border border-gemini-border rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+          >
+            <div className="p-8 border-b border-gemini-border flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gemini-text font-outfit">{t('create.emailTitle')}</h3>
+              <button type="button" onClick={() => setIsEmailModalOpen(false)} className="p-2 text-gemini-dim hover:text-gemini-text transition-colors"><X size={20}/></button>
+            </div>
+            <div className="p-8 space-y-4">
+              <div className="p-4 bg-gemini-accent/5 border border-gemini-accent/10 rounded-2xl flex items-start gap-3">
+                <Mail className="text-gemini-accent shrink-0 mt-0.5" size={18} />
+                <p className="text-xs text-gemini-dim leading-relaxed">{t('create.emailDesc')}</p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim ml-1">{t('create.emailToLabel')}</label>
+                <input name="to" type="email" required placeholder="ami@example.com" className="w-full bg-gemini-bg border border-gemini-border rounded-2xl px-5 py-4 text-sm outline-none focus:border-gemini-accent transition-all placeholder:text-gemini-dim/50 text-gemini-text" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim ml-1">{t('create.emailNoteLabel')}</label>
+                <textarea name="note" rows={3} placeholder={t('create.emailNotePlaceholder')} className="w-full bg-gemini-bg border border-gemini-border rounded-2xl px-5 py-4 text-sm outline-none focus:border-gemini-accent transition-all placeholder:text-gemini-dim/50 text-gemini-text resize-none" />
+              </div>
+            </div>
+            <div className="p-8 bg-gemini-bg/30 border-t border-gemini-border flex gap-3">
+              <button type="button" onClick={() => setIsEmailModalOpen(false)} className="flex-1 px-6 py-4 border border-gemini-border rounded-2xl text-[10px] font-bold uppercase tracking-widest text-gemini-dim hover:text-gemini-accent transition-all">{t('common.cancel')}</button>
+              <button type="submit" className="flex-1 px-6 py-4 bg-gemini-accent text-gemini-bg rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">
+                <Mail size={16} /> {t('create.emailSendBtn')}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* SELL ON MARKETPLACE MODAL */}
+      {isSellModalOpen && generatedCourse && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => !isSelling && setIsSellModalOpen(false)}></div>
+          <div className="relative w-full max-w-md bg-gemini-surface border border-gemini-border rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            {sellSuccess ? (
+              <div className="p-10 text-center space-y-6">
+                <div className="w-20 h-20 bg-gemini-accent text-gemini-bg rounded-full flex items-center justify-center mx-auto shadow-2xl">
+                  <CheckCircle2 size={40} />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-bold font-outfit text-gemini-text">{t('create.sellSuccessTitle')}</h3>
+                  <p className="text-gemini-dim text-sm">{t('create.sellSuccessDesc')}</p>
+                </div>
+                <button
+                  onClick={() => { setIsSellModalOpen(false); navigate('/marketplace'); }}
+                  className="w-full px-6 py-4 bg-gemini-accent text-gemini-bg rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:scale-[1.02] transition-all"
+                >
+                  {t('create.viewOnMarketplace')}
+                </button>
+              </div>
+            ) : (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const price = sellPrice.trim();
+                  if (!price || !generatedCourse) return;
+                  setIsSelling(true);
+                  sellCourse(generatedCourse.id, `${price} €`);
+                  setGeneratedCourse(prev => prev ? { ...prev, price: `${price} €`, isMarketplace: true } : prev);
+                  setTimeout(() => {
+                    setIsSelling(false);
+                    setSellSuccess(true);
+                  }, 600);
+                }}
+              >
+                <div className="p-8 border-b border-gemini-border flex items-center justify-between">
+                  <h3 className="text-xl font-bold text-gemini-text font-outfit">{t('create.sellTitle')}</h3>
+                  <button type="button" onClick={() => setIsSellModalOpen(false)} className="p-2 text-gemini-dim hover:text-gemini-text transition-colors"><X size={20}/></button>
+                </div>
+                <div className="p-8 space-y-4">
+                  <div className="p-4 bg-gemini-accent/5 border border-gemini-accent/10 rounded-2xl flex items-start gap-3">
+                    <Store className="text-gemini-accent shrink-0 mt-0.5" size={18} />
+                    <p className="text-xs text-gemini-dim leading-relaxed">{t('create.sellDesc')}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim ml-1">{t('create.sellPriceLabel')}</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        required
+                        value={sellPrice}
+                        onChange={(e) => setSellPrice(e.target.value)}
+                        placeholder="29.90"
+                        className="w-full bg-gemini-bg border border-gemini-border rounded-2xl pl-5 pr-14 py-4 text-sm outline-none focus:border-gemini-accent transition-all placeholder:text-gemini-dim/50 text-gemini-text"
+                      />
+                      <span className="absolute right-5 top-1/2 -translate-y-1/2 text-gemini-dim text-sm font-bold">€</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-8 bg-gemini-bg/30 border-t border-gemini-border flex gap-3">
+                  <button type="button" onClick={() => setIsSellModalOpen(false)} className="flex-1 px-6 py-4 border border-gemini-border rounded-2xl text-[10px] font-bold uppercase tracking-widest text-gemini-dim hover:text-gemini-accent transition-all">{t('common.cancel')}</button>
+                  <button
+                    type="submit"
+                    disabled={isSelling || !sellPrice.trim()}
+                    className="flex-1 px-6 py-4 bg-gemini-accent text-gemini-bg rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isSelling ? <Loader2 size={16} className="animate-spin" /> : <Store size={16} />}
+                    {t('create.sellPublishBtn')}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
@@ -1513,34 +1789,46 @@ const CreatePage: React.FC<CreatePageProps> = () => {
       {/* DOWNLOAD MODAL */}
       {isDownloadModalOpen && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsDownloadModalOpen(false)}></div>
-          <div className="relative w-full max-w-md bg-gemini-surface border border-gemini-border rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 p-10 text-center space-y-6">
-            <div className="w-20 h-20 bg-gemini-accent text-gemini-bg rounded-full flex items-center justify-center mx-auto shadow-2xl">
-              <FileDown size={40} />
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => !exportingFormat && setIsDownloadModalOpen(false)}></div>
+          {exportedFormat ? (
+            <div className="relative w-full max-w-md bg-gemini-surface border border-gemini-border rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 p-10 text-center space-y-6">
+              <div className="w-20 h-20 bg-gemini-accent text-gemini-bg rounded-full flex items-center justify-center mx-auto shadow-2xl">
+                <CheckCircle2 size={40} />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-2xl font-bold font-outfit text-gemini-text">{t('create.downloadedTitle')}</h3>
+                <p className="text-gemini-dim text-sm">{t('create.downloadedDesc', { format: exportedFormat.toUpperCase() })}</p>
+              </div>
             </div>
-            <div className="space-y-2">
-              <h3 className="text-2xl font-bold font-outfit text-gemini-text">Exporter le savoir</h3>
-              <p className="text-gemini-dim text-sm">{t('create.exportDesc')}</p>
+          ) : (
+            <div className="relative w-full max-w-md bg-gemini-surface border border-gemini-border rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 p-10 text-center space-y-6">
+              <div className="w-20 h-20 bg-gemini-accent text-gemini-bg rounded-full flex items-center justify-center mx-auto shadow-2xl">
+                <FileDown size={40} />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-2xl font-bold font-outfit text-gemini-text">Exporter le savoir</h3>
+                <p className="text-gemini-dim text-sm">{t('create.exportDesc')}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => handleExportCourse('pdf')}
+                  disabled={!!exportingFormat}
+                  className="flex flex-col items-center gap-3 p-6 rounded-[2rem] border border-gemini-border hover:border-gemini-accent hover:bg-gemini-accent/5 transition-all group disabled:opacity-50"
+                >
+                  {exportingFormat === 'pdf' ? <Loader2 size={32} className="animate-spin text-gemini-accent" /> : <FileText size={32} className="text-gemini-dim group-hover:text-gemini-accent" />}
+                  <span className="font-black text-[10px] uppercase tracking-[0.2em] text-gemini-dim group-hover:text-gemini-accent">{exportingFormat === 'pdf' ? t('create.exporting') : 'Format PDF'}</span>
+                </button>
+                <button
+                  onClick={() => handleExportCourse('docx')}
+                  disabled={!!exportingFormat}
+                  className="flex flex-col items-center gap-3 p-6 rounded-[2rem] border border-gemini-border hover:border-gemini-accent hover:bg-gemini-accent/5 transition-all group disabled:opacity-50"
+                >
+                  {exportingFormat === 'docx' ? <Loader2 size={32} className="animate-spin text-gemini-accent" /> : <Layout size={32} className="text-gemini-dim group-hover:text-gemini-accent" />}
+                  <span className="font-black text-[10px] uppercase tracking-[0.2em] text-gemini-dim group-hover:text-gemini-accent">{exportingFormat === 'docx' ? t('create.exporting') : 'Format DOCX'}</span>
+                </button>
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={() => handleExportCourse('pdf')}
-                disabled={!!exportingFormat}
-                className="flex flex-col items-center gap-3 p-6 rounded-[2rem] border border-gemini-border hover:border-gemini-accent hover:bg-gemini-accent/5 transition-all group disabled:opacity-50"
-              >
-                {exportingFormat === 'pdf' ? <Loader2 size={32} className="animate-spin text-gemini-accent" /> : <FileText size={32} className="text-gemini-dim group-hover:text-gemini-accent" />}
-                <span className="font-black text-[10px] uppercase tracking-[0.2em] text-gemini-dim group-hover:text-gemini-accent">{exportingFormat === 'pdf' ? t('create.exporting') : 'Format PDF'}</span>
-              </button>
-              <button
-                onClick={() => handleExportCourse('docx')}
-                disabled={!!exportingFormat}
-                className="flex flex-col items-center gap-3 p-6 rounded-[2rem] border border-gemini-border hover:border-gemini-accent hover:bg-gemini-accent/5 transition-all group disabled:opacity-50"
-              >
-                {exportingFormat === 'docx' ? <Loader2 size={32} className="animate-spin text-gemini-accent" /> : <Layout size={32} className="text-gemini-dim group-hover:text-gemini-accent" />}
-                <span className="font-black text-[10px] uppercase tracking-[0.2em] text-gemini-dim group-hover:text-gemini-accent">{exportingFormat === 'docx' ? t('create.exporting') : 'Format DOCX'}</span>
-              </button>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -1587,8 +1875,17 @@ const CreatePage: React.FC<CreatePageProps> = () => {
         </div>
       )}
 
+      {isPublished && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[300] animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="flex items-center gap-3 px-6 py-4 bg-gemini-accent text-gemini-bg rounded-2xl shadow-2xl">
+            <CheckCircle2 size={20} />
+            <span className="text-sm font-bold">{t('create.publishedToast')}</span>
+          </div>
+        </div>
+      )}
+
       {showToolbar && (
-        <div 
+        <div
           ref={toolbarRef}
           className="fixed z-[100] bg-gemini-surface/90 backdrop-blur-xl border border-gemini-border rounded-2xl shadow-2xl p-1 flex items-center gap-1 animate-in fade-in zoom-in duration-200"
           style={{ top: toolbarPos.y - 10, left: toolbarPos.x, transform: 'translateX(-50%) translateY(-100%)' }}

@@ -27,6 +27,7 @@ interface CourseContextType {
   shareCourse: (courseId: string, user: UserProfile) => void;
   remixCourse: (courseId: string) => Course | null;
   buyCourse: (course: Course) => void;
+  sellCourse: (courseId: string, price: string) => void;
   
   // User Actions
   login: (email?: string, password?: string) => Promise<void>;
@@ -448,6 +449,21 @@ export const CourseProvider = ({ children }: { children?: React.ReactNode }) => 
     setCourses(prev => [newCourse, ...prev]);
   }, []);
 
+  // Lists a course on the Marketplace: marks it for sale and mirrors it into
+  // marketplaceCourses so it actually shows up on the Marketplace page.
+  const sellCourse = useCallback((courseId: string, price: string) => {
+    setCourses(prev => {
+      const course = prev.find(c => c.id === courseId);
+      if (!course) return prev;
+      const listedCourse: Course = { ...course, price, isMarketplace: true, rating: course.rating ?? 5.0, students: course.students ?? 0 };
+      setMarketplaceCourses(mp => {
+        const exists = mp.find(c => c.id === courseId);
+        return exists ? mp.map(c => (c.id === courseId ? listedCourse : c)) : [listedCourse, ...mp];
+      });
+      return prev.map(c => (c.id === courseId ? listedCourse : c));
+    });
+  }, []);
+
   const updateCourse = useCallback((updatedCourse: Course) => {
     setCourses(prev => prev.map(c => c.id === updatedCourse.id ? updatedCourse : c));
     if (activeCourse?.id === updatedCourse.id) setActiveCourse(updatedCourse);
@@ -544,6 +560,7 @@ export const CourseProvider = ({ children }: { children?: React.ReactNode }) => 
       shareCourse,
       remixCourse,
       buyCourse,
+      sellCourse,
       workspaces,
       invitations,
       currentUser,
