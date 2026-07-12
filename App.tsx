@@ -1,6 +1,7 @@
 import { LanguageProvider, useLanguage } from "./contexts/LanguageContext";
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import { 
   PlusCircle, 
   Compass, 
@@ -42,7 +43,7 @@ const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
 
 const AppLayout = ({ children }: { children?: React.ReactNode }) => {
   const { language, t } = useLanguage();
-  const { preferences } = useCourseContext();
+  const { preferences, accessibility } = useCourseContext();
 
   const location = useLocation();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -70,26 +71,41 @@ const AppLayout = ({ children }: { children?: React.ReactNode }) => {
   const hideHeader = location.pathname === '/create' && !isMobile;
 
   return (
+    <MotionConfig reducedMotion={accessibility.reduceMotion ? 'always' : 'never'}>
     <div className="flex h-screen w-full bg-gemini-bg text-gemini-text font-sans overflow-hidden supports-[height:100dvh]:h-[100dvh]">
       {!isMobile && (
-        <Sidebar 
-          isCollapsed={isSidebarCollapsed} 
-          onToggle={toggleSidebarCollapse} 
-          pathname={location.pathname} 
+        <Sidebar
+          isCollapsed={isSidebarCollapsed}
+          onToggle={toggleSidebarCollapse}
+          pathname={location.pathname}
         />
       )}
 
-      {isMobile && (
-        <div
-          className={`fixed inset-0 z-[60] flex transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-          aria-hidden={!isSidebarOpen}
-        >
-          <div className={`h-full transition-transform duration-300 ease-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-            <Sidebar isCollapsed={false} onToggle={() => setSidebarOpen(false)} onLinkClick={() => setSidebarOpen(false)} pathname={location.pathname} />
-          </div>
-          <div className="flex-1 bg-black/50 backdrop-blur-sm" onClick={() => setSidebarOpen(false)}></div>
-        </div>
-      )}
+      <AnimatePresence>
+        {isMobile && isSidebarOpen && (
+          <motion.div
+            key="mobile-sidebar"
+            className="fixed inset-0 z-[60] flex"
+            initial="closed"
+            animate="open"
+            exit="closed"
+          >
+            <motion.div
+              className="h-full"
+              variants={{ open: { x: 0 }, closed: { x: '-100%' } }}
+              transition={{ type: 'spring', damping: 32, stiffness: 340 }}
+            >
+              <Sidebar isCollapsed={false} onToggle={() => setSidebarOpen(false)} onLinkClick={() => setSidebarOpen(false)} pathname={location.pathname} />
+            </motion.div>
+            <motion.div
+              className="flex-1 bg-black/50 backdrop-blur-sm"
+              variants={{ open: { opacity: 1 }, closed: { opacity: 0 } }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              onClick={() => setSidebarOpen(false)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <main className="flex-1 flex flex-col min-w-0 relative transition-all duration-300">
         {!hideHeader && (
@@ -100,14 +116,24 @@ const AppLayout = ({ children }: { children?: React.ReactNode }) => {
         )}
 
         <div className={`flex-1 ${isFullHeightPage ? 'overflow-hidden flex flex-col' : 'overflow-y-auto no-scrollbar'}`}>
-          <div key={location.pathname} className={`animate-in fade-in slide-in-from-bottom-2 duration-300 ${isFullHeightPage ? 'h-full flex flex-col' : ''}`}>
-            {children}
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: isMobile ? 12 : 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: isMobile ? -12 : -8 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+              className={isFullHeightPage ? 'h-full flex flex-col' : ''}
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </main>
 
       {preferences.showAiAssistant && <HelpAssistant />}
     </div>
+    </MotionConfig>
   );
 };
 
