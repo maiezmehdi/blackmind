@@ -36,7 +36,7 @@ export const extractJson = (s: string): string => {
 // negative: things Flux should avoid — Pollinations supports this natively,
 // which is far more reliable than "no text" prose alone at keeping generated
 // gibberish text/letters/watermarks out of the image.
-const DEFAULT_NEGATIVE = 'text, words, letters, writing, caption, subtitle, watermark, logo, signature, typography';
+const DEFAULT_NEGATIVE = 'text, words, letters, writing, caption, subtitle, watermark, logo, signature, typography, infographic, diagram, poster, book cover, labels, chart';
 export const freeImageUrl = (prompt: string, w = 1280, h = 720, negative: string = DEFAULT_NEGATIVE): string => {
   const clean = (prompt || 'abstract').replace(/\s+/g, ' ').trim().slice(0, 320);
   let seed = 0;
@@ -112,12 +112,19 @@ const geminiOnce = async (key: string, system: string, user: string, json: boole
 };
 
 // One Gemini image attempt with a specific key → data URL, or throws.
-const geminiImageOnce = async (key: string, prompt: string): Promise<string> => {
+//
+// "No text" alone is a weak instruction — models still reach for it when the
+// SUBJECT implies a designed, labeled artifact (a "course cover" reads like a
+// book cover; "marketing", "cognitive architecture" etc. read like diagrams
+// with captions). Naming and ruling out those specific visual genres, and
+// leading with the constraint instead of appending it as an afterthought,
+// holds up meaningfully better than a single trailing "no text" clause.
+const geminiImageOnce = async (key: string, prompt: string, aspectRatio: string): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: key });
   const res = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image',
-    contents: `Professional educational illustration: ${prompt}. Minimalist, modern aesthetic. Purely visual image with absolutely no text, no letters, no words, no writing, no captions, no watermark, no logo anywhere in the image.`,
-    config: { responseModalities: [Modality.IMAGE], imageConfig: { aspectRatio: '16:9' } },
+    contents: `Generate a photographic or illustrative scene with ZERO text, letters, numbers, words, writing, captions, labels, watermark, logo, or typography of any kind, anywhere in the frame — not even stylized or partial lettering. This is NOT a poster, NOT a book/course cover, NOT an infographic, NOT a diagram or chart with labels. It is a plain visual scene, like a stock photo. Subject: ${prompt}. Professional, minimalist, modern aesthetic, clean composition, soft depth, cinematic lighting.`,
+    config: { responseModalities: [Modality.IMAGE], imageConfig: { aspectRatio } },
   });
   for (const part of res.candidates?.[0]?.content?.parts || []) {
     if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
@@ -125,16 +132,31 @@ const geminiImageOnce = async (key: string, prompt: string): Promise<string> => 
   throw new Error('no image data');
 };
 
-// Image: try each Gemini key, then fall back to free Pollinations.
-export const generateImage = async (prompt: string): Promise<string> => {
+// width/height pairs matching each Gemini-supported aspect ratio string, used
+// for the Pollinations fallback (which takes pixels, not a ratio).
+const ASPECT_DIMENSIONS: Record<string, [number, number]> = {
+  '16:9': [1280, 720],
+  '9:16': [720, 1280],
+  '4:3': [1024, 768],
+  '3:4': [768, 1024],
+  '1:1': [1024, 1024],
+};
+
+// Image: try each Gemini key, then fall back to free Pollinations. Forcing
+// every image to the same aspect ratio regardless of context (a cover vs. a
+// small in-lesson illustration) not only looks wrong once placed, it can
+// visibly warp/compress the model's own generated content when the subject
+// doesn't naturally suit that shape — so callers pass what they actually need.
+export const generateImage = async (prompt: string, aspectRatio: string = '4:3'): Promise<string> => {
   for (let i = 0; i < GEMINI_KEYS.length; i++) {
     try {
-      return await geminiImageOnce(GEMINI_KEYS[i], prompt);
+      return await geminiImageOnce(GEMINI_KEYS[i], prompt, aspectRatio);
     } catch (e: any) {
       console.warn(`[ai] Gemini image key ${i + 1} failed, trying next:`, e?.message || e);
     }
   }
-  return freeImageUrl(prompt);
+  const [w, h] = ASPECT_DIMENSIONS[aspectRatio] || ASPECT_DIMENSIONS['4:3'];
+  return freeImageUrl(prompt, w, h);
 };
 
 // Finds a real, relevant YouTube video for a topic via the YouTube Data API v3
@@ -394,7 +416,7 @@ export const generateAiBlock = async (type: string, prompt: string, options: any
   try {
     if (type === 'image') {
       // Gemini image (across the keys) → free Pollinations fallback.
-      return await generateImage(prompt);
+      return await generateImage(prompt, options.aspectRatio);
     }
 
     if (type === 'video') {
@@ -421,7 +443,10 @@ export const generateAiBlock = async (type: string, prompt: string, options: any
     return await generateText('', `Rédige un contenu de cours expert et clair en Markdown sur : "${prompt}".`, { maxTokens: 2000 });
   } catch (error: any) {
     console.error(`[ai] ${type} generation failed:`, error?.message || error);
-    if (type === 'image') return freeImageUrl(prompt);
+    if (type === 'image') {
+      const [w, h] = ASPECT_DIMENSIONS[options.aspectRatio] || ASPECT_DIMENSIONS['4:3'];
+      return freeImageUrl(prompt, w, h);
+    }
     if (type === 'video') return { type: 'search-fallback', query: prompt };
     return 'Contenu indisponible.';
   }
