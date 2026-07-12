@@ -58,6 +58,7 @@ interface CourseContextType {
   
   // Workspace Actions
   addWorkspace: (name: string, visibility: 'public' | 'private') => void;
+  deleteWorkspace: (id: string) => void;
   sendInvitation: (workspaceId: string, email: string) => void;
   getWorkspaceMembers: (workspaceId: string) => WorkspaceMember[];
 }
@@ -587,6 +588,13 @@ export const CourseProvider = ({ children }: { children?: React.ReactNode }) => 
     setWorkspaces(prev => [...prev, newWorkspace]);
   }, [currentUser]);
 
+  const deleteWorkspace = useCallback((id: string) => {
+    setWorkspaces(prev => prev.filter(w => w.id !== id));
+    // Un-assign courses that lived in this workspace rather than deleting
+    // them — the workspace is just a collaboration grouping, not ownership.
+    setCourses(prev => prev.map(c => c.workspace === id ? { ...c, workspace: undefined } : c));
+  }, []);
+
   const sendInvitation = useCallback((workspaceId: string, email: string) => {
     const newInvitation: Invitation = {
       id: Math.random().toString(36).substr(2, 9),
@@ -660,6 +668,7 @@ export const CourseProvider = ({ children }: { children?: React.ReactNode }) => 
       updateUserProfile,
       upgradeSubscription,
       addWorkspace,
+      deleteWorkspace,
       sendInvitation,
       getWorkspaceMembers
     } },

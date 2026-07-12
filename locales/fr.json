@@ -236,7 +236,7 @@
   "help": {
     "title": "Besoin d'aide ?",
     "aiKeysQ": "Comment fonctionne la génération IA (Gemini, Qwen) ?",
-    "aiKeysA": "Blackmind essaie jusqu'à 3 clés Gemini dans l'ordre, puis bascule sur Qwen en dernier recours. Configure tes clés dans les variables d'environnement du projet — sans clé, la génération ne fonctionnera pas.",
+    "aiKeysA": "Blackmind utilise Gemini comme fournisseur principal (jusqu'à 3 clés essayées dans l'ordre), avec Qwen en repli automatique. Deux façons de générer du contenu : tape un sujet dans le chat, ou importe un document existant via le menu + → Importer depuis Google Workspace pour le transformer en cours structuré. Configure tes clés dans les variables d'environnement du projet — sans clé, la génération ne fonctionnera pas.",
     "exportQ": "Comment exporter mon cours ?",
     "exportA": "Depuis le menu « ... » d'un cours, choisis Télécharger le cours pour obtenir un PDF ou un DOCX, ou Ouvrir dans Google Docs si ton compte Google est connecté.",
     "googleDriveQ": "Comment lier mon compte Google Drive ?",
@@ -244,7 +244,9 @@
     "accessibilityQ": "Où régler les options d'accessibilité ?",
     "accessibilityA": "Dans Réglages → Accessibilité : police adaptée à la dyslexie, contraste élevé, lecture audio, taille du texte et bien plus, avec effet immédiat sur toute l'application.",
     "workspacesQ": "Comment collaborer avec mon équipe ?",
-    "workspacesA": "Crée un espace de travail dans l'onglet Espaces, puis utilise Partager sur un espace ou Inviter des collaborateurs depuis le menu d'un cours."
+    "workspacesA": "Crée un espace de travail dans l'onglet Espaces, puis utilise Partager sur un espace ou Inviter des collaborateurs depuis le menu d'un cours.",
+    "monetizeQ": "Comment monétiser mon cours ?",
+    "monetizeA": "Depuis le menu « ... » d'un cours, choisis Vendre et fixe un prix — il est alors publié sur la Marketplace où les autres utilisateurs peuvent l'acheter."
   },
   "create": {
     "welcome": "Bienvenue sur Blackmind ! 👋 Je suis ravi de vous aider à concevoir votre prochain cours d'exception. Dites-moi tout sur votre sujet, je vous écoute avec enthousiasme !",
@@ -461,7 +463,13 @@
     "activeMembers": "Membres actifs",
     "subtitle": "Gestion collaborative pour l'équipe",
     "emailPlaceholder": "Email de l'invité...",
-    "teamPlaceholder": "Ex: Équipe Produit..."
+    "teamPlaceholder": "Ex: Équipe Produit...",
+    "delete": "Supprimer l'espace",
+    "deleteConfirmTitle": "Supprimer « {name} » ?",
+    "deleteConfirmDesc": "Les cours de cet espace ne seront pas supprimés, mais ne seront plus liés à cet espace.",
+    "emptyTitle": "Aucun espace pour l'instant",
+    "emptyDesc": "Créez votre premier espace de travail pour collaborer en équipe sur vos cours.",
+    "emptyCta": "Créer un espace"
   },
   "marketplace": {
     "title": "Marketplace",

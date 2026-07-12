@@ -1,16 +1,21 @@
 
 import React, { useState, useMemo } from 'react';
-import { Plus, Users, Globe, Lock, MoreVertical, Search, Filter, Share2, ArrowRight, X, Check, UserPlus, Mail, Shield, Briefcase, Clock } from 'lucide-react';
+import { Plus, Users, Globe, Lock, MoreVertical, Search, Filter, Share2, ArrowRight, X, Check, UserPlus, Mail, Shield, Briefcase, Clock, Trash2, AlertCircle } from 'lucide-react';
 import { useCourseContext } from '../store/useCourseStore';
 import { Course, UserProfile, Workspace, Invitation } from '../types';
 import { Link } from 'react-router-dom';
 
-const WorkspaceCard = ({ name, membersCount, visibility, isActive, onClick, initial }: any) => (
-  <button 
+// Fixed height so every card is identical regardless of name length or
+// member count — content is truncated to fit rather than resizing the card.
+const WorkspaceCard = ({ name, membersCount, visibility, isActive, onClick, onDeleteRequest, initial }: any) => (
+  <div
     onClick={onClick}
-    className={`w-full md:w-auto text-left p-4 rounded-2xl transition-all border flex items-center justify-between group animate-in fade-in duration-300 min-w-[240px] md:min-w-0 ${isActive ? 'bg-gemini-accent/5 border-gemini-accent/20 shadow-sm' : 'bg-transparent border-gemini-border hover:bg-gemini-surface'}`}
+    role="button"
+    tabIndex={0}
+    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+    className={`w-full md:w-auto h-[76px] shrink-0 text-left p-4 rounded-2xl transition-all border flex items-center justify-between group animate-in fade-in duration-300 min-w-[240px] md:min-w-0 cursor-pointer ${isActive ? 'bg-gemini-accent/5 border-gemini-accent/20 shadow-sm' : 'bg-transparent border-gemini-border hover:bg-gemini-surface'}`}
   >
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3 min-w-0">
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg transition-colors shrink-0 uppercase ${isActive ? 'bg-gemini-accent text-gemini-bg' : 'bg-gemini-bg text-gemini-dim group-hover:bg-gemini-border group-hover:text-gemini-accent'}`}>
         {initial}
       </div>
@@ -22,30 +27,41 @@ const WorkspaceCard = ({ name, membersCount, visibility, isActive, onClick, init
         </div>
       </div>
     </div>
-    <ArrowRight size={16} className={`transition-all duration-300 text-gemini-accent ml-2 hidden md:block ${isActive ? 'translate-x-0 opacity-100' : '-translate-x-2 opacity-0 group-hover:opacity-100 group-hover:translate-x-0'}`} />
-  </button>
+    <div className="flex items-center gap-1 shrink-0 ml-2">
+      <button
+        onClick={(e) => { e.stopPropagation(); onDeleteRequest(); }}
+        className="p-1.5 rounded-lg text-gemini-dim opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:text-red-500 hover:bg-red-500/10 transition-all"
+        title="Supprimer"
+      >
+        <Trash2 size={14} />
+      </button>
+      <ArrowRight size={16} className={`transition-all duration-300 text-gemini-accent hidden md:block ${isActive ? 'translate-x-0 opacity-100' : '-translate-x-2 opacity-0 group-hover:opacity-100 group-hover:translate-x-0'}`} />
+    </div>
+  </div>
 );
 
 const WorkspacesPage: React.FC = () => {
-  const { 
-    courses, 
-    updateCourse, 
-    workspaces, 
-    addWorkspace, 
-    invitations, 
+  const {
+    courses,
+    updateCourse,
+    workspaces,
+    addWorkspace,
+    deleteWorkspace,
+    invitations,
     sendInvitation,
     getWorkspaceMembers,
     currentUser,
     t
   } = useCourseContext();
-  
+
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>(workspaces[0]?.id || '');
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // Modal states
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isCreateWSModalOpen, setIsCreateWSModalOpen] = useState(false);
   const [isManageTeamModalOpen, setIsManageTeamModalOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   // Forms state
   const [newWSName, setNewWSName] = useState('');
@@ -86,6 +102,16 @@ const WorkspacesPage: React.FC = () => {
     setIsCreateWSModalOpen(false);
   };
 
+  const handleConfirmDelete = () => {
+    if (!deleteConfirm) return;
+    deleteWorkspace(deleteConfirm.id);
+    if (activeWorkspaceId === deleteConfirm.id) {
+      const remaining = workspaces.filter(w => w.id !== deleteConfirm.id);
+      setActiveWorkspaceId(remaining[0]?.id || '');
+    }
+    setDeleteConfirm(null);
+  };
+
   const handleShareToWorkspace = (course: Course) => {
     if (!activeWorkspace) return;
     updateCourse({ ...course, workspace: activeWorkspace.id });
@@ -101,8 +127,106 @@ const WorkspacesPage: React.FC = () => {
     setTimeout(() => setInviteStatus('idle'), 3000);
   };
 
+  const createWorkspaceModal = isCreateWSModalOpen && (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setIsCreateWSModalOpen(false)}></div>
+      <form onSubmit={handleCreateWorkspace} className="relative w-full max-w-md bg-gemini-surface border border-gemini-border rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-300">
+        <div className="p-8 border-b border-gemini-border flex items-center justify-between">
+          <h3 className="text-2xl font-bold font-outfit text-gemini-accent">{t('workspace.createModalTitle')}</h3>
+          <button type="button" onClick={() => setIsCreateWSModalOpen(false)} className="p-2 hover:bg-gemini-bg rounded-full transition-colors text-gemini-dim"><X size={20}/></button>
+        </div>
+        <div className="p-8 space-y-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim ml-1">{t('workspace.teamName')}</label>
+            <input
+              autoFocus
+              type="text"
+              value={newWSName}
+              onChange={(e) => setNewWSName(e.target.value)}
+              placeholder={t('workspace.teamPlaceholder')}
+              className="w-full bg-gemini-bg border border-gemini-border rounded-2xl px-5 py-4 text-sm outline-none focus:border-gemini-dim transition-all placeholder:text-gemini-dim/50 text-gemini-text"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim ml-1">{t('workspace.visibility')}</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setNewWSVisibility('private')}
+                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${newWSVisibility === 'private' ? 'bg-gemini-accent text-gemini-bg border-gemini-accent shadow-md' : 'bg-gemini-bg border-gemini-border text-gemini-dim hover:text-gemini-text'}`}
+              >
+                <Lock size={20} />
+                <span className="text-[10px] font-bold uppercase tracking-widest">{t('workspace.private')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setNewWSVisibility('public')}
+                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${newWSVisibility === 'public' ? 'bg-gemini-accent text-gemini-bg border-gemini-accent shadow-md' : 'bg-gemini-bg border-gemini-border text-gemini-dim hover:text-gemini-text'}`}
+              >
+                <Globe size={20} />
+                <span className="text-[10px] font-bold uppercase tracking-widest">{t('workspace.public')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="p-8 bg-gemini-bg/30 border-t border-gemini-border flex gap-3">
+          <button type="button" onClick={() => setIsCreateWSModalOpen(false)} className="flex-1 px-6 py-4 border border-gemini-border rounded-2xl text-[11px] font-bold uppercase tracking-widest text-gemini-dim hover:text-gemini-accent transition-all">{t('workspace.cancel')}</button>
+          <button type="submit" disabled={!newWSName.trim()} className="flex-1 px-6 py-4 bg-gemini-accent text-gemini-bg rounded-2xl text-[11px] font-bold uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 shadow-lg">{t('workspace.create')}</button>
+        </div>
+      </form>
+    </div>
+  );
+
+  const deleteConfirmModal = deleteConfirm && (
+    <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setDeleteConfirm(null)}></div>
+      <div className="relative w-full max-w-md bg-gemini-surface border border-gemini-border rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="p-10 text-center space-y-6">
+          <div className="w-20 h-20 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-2 border border-red-500/20">
+            <AlertCircle size={40} />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-2xl font-bold font-outfit text-gemini-text">{t('workspace.deleteConfirmTitle', { name: deleteConfirm.name })}</h3>
+            <p className="text-sm text-gemini-dim leading-relaxed">{t('workspace.deleteConfirmDesc')}</p>
+          </div>
+          <div className="flex gap-3 pt-4">
+            <button
+              onClick={() => setDeleteConfirm(null)}
+              className="flex-1 px-6 py-4 bg-gemini-bg border border-gemini-border rounded-2xl text-[10px] font-bold uppercase tracking-widest text-gemini-text hover:bg-gemini-surface transition-all"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              onClick={handleConfirmDelete}
+              className="flex-1 px-6 py-4 bg-red-500 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-600 shadow-lg active:scale-95 transition-all"
+            >
+              {t('common.confirm')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   if (!activeWorkspace) {
-    return <div className="h-full flex items-center justify-center text-gemini-text">{t('workspace.loading')}</div>;
+    return (
+      <div className="h-full flex flex-col items-center justify-center text-center gap-6 bg-gemini-bg p-8">
+        <div className="w-20 h-20 bg-gemini-surface rounded-[2rem] flex items-center justify-center border border-gemini-border shadow-xl text-gemini-dim">
+          <Briefcase size={32} />
+        </div>
+        <div className="space-y-2 max-w-sm">
+          <h3 className="text-2xl font-bold font-outfit text-gemini-accent">{t('workspace.emptyTitle')}</h3>
+          <p className="text-gemini-dim text-sm leading-relaxed">{t('workspace.emptyDesc')}</p>
+        </div>
+        <button
+          onClick={() => setIsCreateWSModalOpen(true)}
+          className="inline-flex items-center gap-2 bg-gemini-accent text-gemini-bg px-6 py-3 rounded-full font-bold text-xs uppercase tracking-widest shadow-lg hover:scale-105 active:scale-95 transition-transform"
+        >
+          <Plus size={16} /> {t('workspace.emptyCta')}
+        </button>
+        {createWorkspaceModal}
+      </div>
+    );
   }
 
   const detailHeaderInner = (
@@ -163,14 +287,15 @@ const WorkspacesPage: React.FC = () => {
         
         <div className="flex-none md:flex-1 overflow-x-auto md:overflow-y-auto p-2 md:p-4 space-x-2 md:space-x-0 md:space-y-2 no-scrollbar flex md:block">
           {workspaces.map((ws) => (
-            <WorkspaceCard 
-              key={ws.id} 
+            <WorkspaceCard
+              key={ws.id}
               name={ws.name}
               initial={ws.name.charAt(0)}
               membersCount={ws.members.length}
               visibility={ws.visibility}
               isActive={activeWorkspace.id === ws.id}
               onClick={() => setActiveWorkspaceId(ws.id)}
+              onDeleteRequest={() => setDeleteConfirm({ id: ws.id, name: ws.name })}
             />
           ))}
         </div>
@@ -259,55 +384,8 @@ const WorkspacesPage: React.FC = () => {
         </div>
 
         {/* Modals updated for theme */}
-        {isCreateWSModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setIsCreateWSModalOpen(false)}></div>
-            <form onSubmit={handleCreateWorkspace} className="relative w-full max-w-md bg-gemini-surface border border-gemini-border rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-300">
-              <div className="p-8 border-b border-gemini-border flex items-center justify-between">
-                <h3 className="text-2xl font-bold font-outfit text-gemini-accent">{t('workspace.createModalTitle')}</h3>
-                <button type="button" onClick={() => setIsCreateWSModalOpen(false)} className="p-2 hover:bg-gemini-bg rounded-full transition-colors text-gemini-dim"><X size={20}/></button>
-              </div>
-              <div className="p-8 space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim ml-1">{t('workspace.teamName')}</label>
-                  <input 
-                    autoFocus
-                    type="text" 
-                    value={newWSName}
-                    onChange={(e) => setNewWSName(e.target.value)}
-                    placeholder={t('workspace.teamPlaceholder')}
-                    className="w-full bg-gemini-bg border border-gemini-border rounded-2xl px-5 py-4 text-sm outline-none focus:border-gemini-dim transition-all placeholder:text-gemini-dim/50 text-gemini-text"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim ml-1">{t('workspace.visibility')}</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button 
-                      type="button"
-                      onClick={() => setNewWSVisibility('private')}
-                      className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${newWSVisibility === 'private' ? 'bg-gemini-accent text-gemini-bg border-gemini-accent shadow-md' : 'bg-gemini-bg border-gemini-border text-gemini-dim hover:text-gemini-text'}`}
-                    >
-                      <Lock size={20} />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">{t('workspace.private')}</span>
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => setNewWSVisibility('public')}
-                      className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${newWSVisibility === 'public' ? 'bg-gemini-accent text-gemini-bg border-gemini-accent shadow-md' : 'bg-gemini-bg border-gemini-border text-gemini-dim hover:text-gemini-text'}`}
-                    >
-                      <Globe size={20} />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">{t('workspace.public')}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="p-8 bg-gemini-bg/30 border-t border-gemini-border flex gap-3">
-                <button type="button" onClick={() => setIsCreateWSModalOpen(false)} className="flex-1 px-6 py-4 border border-gemini-border rounded-2xl text-[11px] font-bold uppercase tracking-widest text-gemini-dim hover:text-gemini-accent transition-all">{t('workspace.cancel')}</button>
-                <button type="submit" disabled={!newWSName.trim()} className="flex-1 px-6 py-4 bg-gemini-accent text-gemini-bg rounded-2xl text-[11px] font-bold uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 shadow-lg">{t('workspace.create')}</button>
-              </div>
-            </form>
-          </div>
-        )}
+        {createWorkspaceModal}
+        {deleteConfirmModal}
 
         {/* Manage Team Modal */}
         {isManageTeamModalOpen && (

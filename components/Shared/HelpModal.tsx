@@ -7,7 +7,7 @@ interface HelpModalProps {
   onClose: () => void;
 }
 
-const FAQ_KEYS = ['aiKeys', 'export', 'googleDrive', 'accessibility', 'workspaces'];
+const FAQ_KEYS = ['aiKeys', 'export', 'googleDrive', 'accessibility', 'workspaces', 'monetize'];
 
 const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
   const { t } = useLanguage();
