@@ -95,7 +95,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { marked } from 'marked';
-import { generateCourseStructure, editCourseStructure, generateStorytellingStructure, refineContent, generateAiBlock, extractJson } from '../services/geminiService';
+import { generateCourseStructure, editCourseStructure, generateStorytellingStructure, refineContent, generateAiBlock, extractJson, ChatTurn } from '../services/geminiService';
 import { exportCoursePdf, exportCourseDocx } from '../services/exportService';
 import { makeGradientCover } from '../services/coverImage';
 import { downloadMedia, mediaFilename } from '../services/download';
@@ -238,6 +238,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isEditingCourse, setIsEditingCourse] = useState(false);
 
   // AI Prompt Modal State
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -573,9 +574,17 @@ const CreatePage: React.FC<CreatePageProps> = () => {
   const handleGenerateCourse = async (customPrompt?: string) => {
     const activePrompt = customPrompt || prompt;
     if (!activePrompt.trim()) return;
-    
+
+    // Snapshot the conversation so far (before this new message) so the AI
+    // can resolve implicit references ("ça", "plus court", "non plutôt...").
+    const historyForAi: ChatTurn[] = messages
+      .filter(m => m.role === 'user' || m.role === 'assistant')
+      .map(m => ({ role: m.role, content: m.content }));
+
     setError(null);
     setMessages(prev => [...prev, { role: 'user', content: activePrompt, timestamp: new Date() }]);
+    const courseBeingEdited = !isStorytellingMode && generatedCourse;
+    setIsEditingCourse(!!courseBeingEdited);
     setIsGenerating(true);
     if (!customPrompt) setPrompt('');
 
@@ -590,11 +599,11 @@ const CreatePage: React.FC<CreatePageProps> = () => {
         // A course is already open in the canvas: treat this prompt as an
         // instruction to modify/extend it, not as a request to start a
         // brand new, unrelated course from scratch.
-        const courseBeingEdited = generatedCourse;
         const response = courseBeingEdited
           ? await editCourseStructure(
               { title: courseBeingEdited.title, description: courseBeingEdited.description, category: courseBeingEdited.category, modules: courseBeingEdited.modules },
               activePrompt,
+              historyForAi,
               isThinkingMode,
               contentLanguage,
             )
@@ -2120,8 +2129,8 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                     <div className="w-2.5 h-2.5 bg-gemini-accent rounded-full animate-bounce [animation-delay:-.5s]"></div>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gemini-accent">{t('create.generating')}</p>
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-gemini-dim">{t('create.optimizing')}</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gemini-accent">{isEditingCourse ? t('create.updatingCourse') : t('create.generating')}</p>
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-gemini-dim">{isEditingCourse ? t('create.applyingChanges') : t('create.optimizing')}</p>
                   </div>
                 </div>
               )}

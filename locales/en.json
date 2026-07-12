@@ -261,6 +261,8 @@
     "shareDesc": "Choose a workspace to share this course with your team.",
     "exportDesc": "Prepare a high-definition archive of your course.",
     "optimizing": "Optimizing the pedagogical structure",
+    "updatingCourse": "Blackmind is updating your course...",
+    "applyingChanges": "Applying the requested changes",
     "customInstruction": "Custom instruction",
     "orCustomInstruction": "Or custom instruction",
     "customOption": "Custom option",

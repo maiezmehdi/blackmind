@@ -273,44 +273,60 @@ export const generateCourseStructure = async (prompt: string, thinking: boolean 
   }
 };
 
+export type ChatTurn = { role: 'user' | 'assistant'; content: string };
+
 export const editCourseStructure = async (
   existingCourse: { title: string; description: string; category: string; modules: any[] },
   instruction: string,
+  history: ChatTurn[] = [],
   thinking: boolean = false,
   language: string = 'fr',
 ): Promise<string> => {
   const systemInstruction = `
-    Rôle : Tu es "Blackmind Architect".
-    Style : Minimaliste, intelligent, précis, direct, légèrement provocateur. "No fluff".
-    MISSION : Tu reçois un cours EXISTANT (JSON) et une instruction de modification donnée par son auteur dans le fil de discussion. Applique UNIQUEMENT ce qui est demandé (ajouter un module/leçon/bloc, réécrire une partie précise, changer le titre, etc.) et renvoie le cours COMPLET mis à jour, dans le même schéma JSON.
+    Rôle : Tu es "Blackmind Architect", l'assistant conversationnel qui aide l'auteur à concevoir et faire évoluer son cours.
+    Style : Minimaliste, intelligent, précis, direct, légèrement provocateur. "No fluff". Tu réponds comme dans une vraie conversation qui continue, pas comme si chaque message repartait de zéro.
+    CONTEXTE : Tu reçois le cours EXISTANT (JSON), l'historique récent de la conversation, et le dernier message de l'auteur. Utilise l'historique pour comprendre les références implicites ("ça", "le module précédent", "plus court", "non plutôt...", "comme avant mais...").
 
-    RÈGLES STRICTES :
-    - Ceci est une ÉDITION, pas une nouvelle création : ne repars jamais de zéro sur un autre sujet.
+    MISSION — décide d'abord ce que veut l'auteur avec son dernier message :
+    1. S'il demande une modification du cours (ajouter/retirer/réécrire/réorganiser du contenu, changer le titre, ajuster le ton ou la longueur, etc.) → applique-la et renvoie le cours COMPLET mis à jour.
+    2. S'il pose une question, fait un commentaire, ou discute sans demander de changement → réponds simplement dans "commentary" et renvoie le cours EXACTEMENT identique (aucune modification, mêmes "id").
+
+    RÈGLES STRICTES (quand tu modifies) :
+    - Ceci est une ÉDITION, pas une nouvelle création : ne repars jamais de zéro sur un autre sujet, sauf si l'auteur le demande explicitement.
     - Conserve tel quel tout le contenu existant qui n'est pas concerné par la demande (ne réécris pas des modules/leçons non mentionnés).
     - Conserve les "id" des modules/leçons/blocs existants inchangés.
     - Si la demande implique d'ajouter du contenu, ajoute-le à la suite avec de nouveaux "id" uniques (n'écrase pas l'existant).
     - Ne duplique jamais le bloc "overview" : il ne doit rester que dans la première leçon du premier module.
     - TOUT le contenu DOIT être rédigé dans la langue : ${language}.
+    - "commentary" doit être une réponse conversationnelle courte et naturelle qui tient compte de l'historique (pas une phrase générique répétée à chaque fois).
 
     SCHEMA JSON STRICT (réponds UNIQUEMENT avec ce JSON, sans texte autour) :
     {
-      "commentary": "Courte confirmation de ce qui a été modifié.",
+      "commentary": "Réponse conversationnelle courte, naturelle, qui tient compte du contexte.",
       "suggestions": ["...", "...", "..."],
       "course": {
         "title": "...",
         "description": "...",
         "category": "...",
-        "modules": [ /* structure identique à celle du cours existant, mise à jour */ ]
+        "modules": [ /* structure identique à celle du cours existant, mise à jour si besoin */ ]
       }
     }
   `;
 
+  const historyText = history
+    .slice(-8)
+    .map((m) => `${m.role === 'user' ? 'Auteur' : 'Toi'} : ${m.content}`)
+    .join('\n');
+
+  const userPrompt = [
+    `Cours actuel (JSON) :\n${JSON.stringify(existingCourse)}`,
+    historyText ? `Historique récent de la conversation :\n${historyText}` : null,
+    `Dernier message de l'auteur : "${instruction}"`,
+    `Réponds en JSON avec le cours complet (modifié si nécessaire, identique sinon).`,
+  ].filter(Boolean).join('\n\n');
+
   try {
-    return await generateText(
-      systemInstruction,
-      `Cours existant (JSON) :\n${JSON.stringify(existingCourse)}\n\nInstruction de l'auteur : "${instruction}"\n\nRéponds en JSON avec le cours complet mis à jour.`,
-      { json: true, maxTokens: 8000 },
-    );
+    return await generateText(systemInstruction, userPrompt, { json: true, maxTokens: 8000 });
   } catch (e: any) {
     console.error('[ai] Course edit failed', e?.message || e);
     return JSON.stringify({
