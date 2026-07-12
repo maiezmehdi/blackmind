@@ -55,7 +55,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle, pathname, onLi
           <button 
             onClick={onToggle} 
             className="p-1.5 hover:bg-gemini-surface rounded-lg text-gemini-dim hover:text-gemini-accent transition-all"
-            title="Fermer la barre latérale"
+            title={t('nav.closeSidebar')}
           >
             <PanelLeftClose size={18} />
           </button>
@@ -66,7 +66,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle, pathname, onLi
          <button 
             onClick={onToggle} 
             className="mx-auto p-2.5 hover:bg-gemini-surface rounded-xl text-gemini-accent transition-all mb-2"
-            title="Ouvrir la barre latérale"
+            title={t('nav.openSidebar')}
           >
             <PanelLeft size={20} />
           </button>

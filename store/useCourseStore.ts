@@ -378,10 +378,6 @@ export const CourseProvider = ({ children }: { children?: React.ReactNode }) => 
   }, [currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('blackmind_lang', language);
-  }, [language]);
-
-  useEffect(() => {
     localStorage.setItem('blackmind_accessibility', JSON.stringify(accessibility));
   }, [accessibility]);
 

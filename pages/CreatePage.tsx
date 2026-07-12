@@ -101,6 +101,7 @@ import { makeGradientCover } from '../services/coverImage';
 import { downloadMedia, mediaFilename } from '../services/download';
 import { isGoogleConfigured, isGoogleConnected, connectGoogle, getAccessToken } from '../services/googleAuth';
 import { uploadCourseAsGoogleDoc } from '../services/googleDrive';
+import { htmlToMarkdown } from '../services/htmlToMarkdown';
 import { Course, Module, Lesson, ContentBlock, BlockType, UserProfile, WorkspaceMember } from '../types';
 import { useCourseContext } from '../store/useCourseStore';
 import ArModelBlock from '../components/ArModelBlock';
@@ -129,7 +130,7 @@ const CourseMetadataCard: React.FC<{ data: any, t: any }> = ({ data, t }) => {
           <Layers size={24} />
         </div>
         <div>
-          <h3 className="text-xl font-bold font-outfit text-gemini-accent">{data.moduleTitle || "Aperçu du cours"}</h3>
+          <h3 className="text-xl font-bold font-outfit text-gemini-accent">{data.moduleTitle || t('overview.courseOverview')}</h3>
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gemini-dim">{t('overview.moduleIntro')}</p>
         </div>
       </div>
@@ -204,7 +205,7 @@ const CourseMetadataCard: React.FC<{ data: any, t: any }> = ({ data, t }) => {
                 <MessageSquare size={20} />
               </div>
               <div 
-                title="Expérience Réalité Augmentée"
+                title={t('overview.arExperience')}
                 className={`flex items-center justify-center p-3 rounded-xl border transition-all ${data.accessibility?.ar ? 'bg-gemini-accent/10 border-gemini-accent/20 text-gemini-accent' : 'bg-gemini-bg border-gemini-border text-gemini-dim opacity-30'}`}
               >
                 <BoxSelect size={20} />
@@ -337,6 +338,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
   const toolbarRef = useRef<HTMLDivElement>(null);
   const refinementDropdownRef = useRef<HTMLDivElement>(null);
   const chatOptionsRef = useRef<HTMLDivElement>(null);
+  const promptTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Mock Google Drive Documents
   const mockGDocs = [
@@ -626,7 +628,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
         }
 
         const courseData = responseData.course || responseData;
-        const commentary = responseData.commentary || "Architecture générée.";
+        const commentary = responseData.commentary || t('create.architectureGenerated');
         const suggestions = responseData.suggestions || [];
 
         // Failed generation returns an empty "Erreur" course. This is also
@@ -1007,7 +1009,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
       title: newModuleTitle,
       lessons: [{
         id: Math.random().toString(36).substr(2, 9),
-        title: "Nouvelle leçon",
+        title: t('create.newLesson'),
         content: []
       }]
     };
@@ -1179,7 +1181,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
       className={`absolute z-[120] bg-gemini-surface border border-gemini-border rounded-2xl shadow-2xl py-2 w-56 md:w-64 max-w-[calc(100vw-1.5rem)] animate-in fade-in zoom-in-95 duration-200 overflow-hidden ${type === 'block' ? 'top-10 left-1/2 -ml-28 md:ml-0 md:left-auto md:right-0' : 'left-0 top-full mt-2'}`}
     >
       <div className="px-4 py-2 border-b border-gemini-border mb-1">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim">Actions IA</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim">{t('create.aiActionsLabel')}</p>
       </div>
       <div className="max-h-80 overflow-y-auto no-scrollbar">
         {refinementActions.map((act) => (
@@ -1209,10 +1211,10 @@ const CreatePage: React.FC<CreatePageProps> = () => {
          <button 
           onClick={() => {
             if (type === 'selection') {
-               openAiModal({ title: t('create.toolbar.improve'), action: "improve", targetType: "refine", modId: selectionContext?.modId, lesId: selectionContext?.lesId, placeholder: "Décrivez..." });
+               openAiModal({ title: t('create.toolbar.improve'), action: "improve", targetType: "refine", modId: selectionContext?.modId, lesId: selectionContext?.lesId, placeholder: t('create.improvePlaceholder') });
             } else {
                const [mId, lId, bId] = id?.split(':') || [];
-               openAiModal({ title: t('create.toolbar.improve'), action: "improve", targetType: "refine", modId: mId, lesId: lId, blockId: bId, placeholder: "Que souhaitez-vous améliorer ?" });
+               openAiModal({ title: t('create.toolbar.improve'), action: "improve", targetType: "refine", modId: mId, lesId: lId, blockId: bId, placeholder: t('create.improveWhatPlaceholder') });
             }
             setActiveRefinementMenu(null);
           }}
@@ -1869,7 +1871,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                 <FileDown size={40} />
               </div>
               <div className="space-y-2">
-                <h3 className="text-2xl font-bold font-outfit text-gemini-text">Exporter le savoir</h3>
+                <h3 className="text-2xl font-bold font-outfit text-gemini-text">{t('create.exportTitle')}</h3>
                 <p className="text-gemini-dim text-sm">{t('create.exportDesc')}</p>
               </div>
               <div className="grid grid-cols-3 gap-3">
@@ -1973,7 +1975,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                   onMouseDown={(e) => e.preventDefault()} 
                   onClick={() => setActiveRefinementMenu(activeRefinementMenu?.type === 'selection' ? null : { type: 'selection' })} 
                   className={`refinement-toggle p-2.5 rounded-xl transition-all ${activeRefinementMenu?.type === 'selection' ? 'bg-gemini-accent text-gemini-bg' : 'text-gemini-dim hover:text-gemini-accent hover:bg-gemini-bg'}`} 
-                  title="Améliorer avec l'IA"
+                  title={t('create.improveWithAiTitle')}
                  >
                     <Sparkles size={16} />
                  </button>
@@ -1986,8 +1988,8 @@ const CreatePage: React.FC<CreatePageProps> = () => {
               <button onMouseDown={(e) => e.preventDefault()} onClick={() => handleFormatting('italic')} title={t('create.toolbar.actions.italic')} className="p-2.5 hover:bg-gemini-bg rounded-xl text-gemini-dim hover:text-gemini-text transition-all"><Italic size={16} /></button>
               <button onMouseDown={(e) => e.preventDefault()} onClick={() => handleFormatting('highlight')} title={t('create.toolbar.actions.highlight')} className="p-2.5 hover:bg-gemini-bg rounded-xl text-gemini-dim hover:text-gemini-text transition-all"><Highlighter size={16} /></button>
               <div className="w-px h-4 bg-gemini-border mx-1" />
-              <button onMouseDown={(e) => e.preventDefault()} onClick={() => handleRefineSelection('summarize')} title="Résumer" className="p-2.5 hover:bg-gemini-bg rounded-xl text-gemini-dim hover:text-gemini-text transition-all"><FileText size={16} /></button>
-              <button onMouseDown={(e) => e.preventDefault()} onClick={() => handleRefineSelection('expand')} title="Développer" className="p-2.5 hover:bg-gemini-bg rounded-xl text-gemini-dim hover:text-gemini-text transition-all"><Maximize size={16} /></button>
+              <button onMouseDown={(e) => e.preventDefault()} onClick={() => handleRefineSelection('summarize')} title={t('create.summarizeTitle')} className="p-2.5 hover:bg-gemini-bg rounded-xl text-gemini-dim hover:text-gemini-text transition-all"><FileText size={16} /></button>
+              <button onMouseDown={(e) => e.preventDefault()} onClick={() => handleRefineSelection('expand')} title={t('create.toolbar.actions.expand')} className="p-2.5 hover:bg-gemini-bg rounded-xl text-gemini-dim hover:text-gemini-text transition-all"><Maximize size={16} /></button>
               <button onMouseDown={(e) => e.preventDefault()} onClick={() => openAiModal({
                 title: t('create.toolbar.translate'),
                 action: "translate",
@@ -1995,17 +1997,17 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                 modId: selectionContext?.modId || '',
                 lesId: selectionContext?.lesId || '',
                 placeholder: ""
-              })} title="Traduire" className="p-2.5 hover:bg-gemini-bg rounded-xl text-gemini-dim hover:text-gemini-text transition-all"><Globe size={16} /></button>
+              })} title={t('create.toolbar.actions.translate')} className="p-2.5 hover:bg-gemini-bg rounded-xl text-gemini-dim hover:text-gemini-text transition-all"><Globe size={16} /></button>
               <div className="w-px h-4 bg-gemini-border mx-1" />
-              <button 
-                onMouseDown={(e) => e.preventDefault()} 
+              <button
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
                   if (selectionContext) {
-                    setDeleteConfirm({ show: true, type: 'block', params: { modId: selectionContext.modId, lesId: selectionContext.lesId, blockId: selectionContext.blockId }, title: 'Sélection' });
+                    setDeleteConfirm({ show: true, type: 'block', params: { modId: selectionContext.modId, lesId: selectionContext.lesId, blockId: selectionContext.blockId }, title: t('create.selectionLabel') });
                     setShowToolbar(false);
                   }
-                }} 
-                title="Supprimer l'élément" 
+                }}
+                title={t('create.deleteElementTitle')}
                 className="p-2.5 hover:bg-red-500/10 rounded-xl text-gemini-dim hover:text-red-500 transition-all"
               >
                 <Trash2 size={16} />
@@ -2038,25 +2040,25 @@ const CreatePage: React.FC<CreatePageProps> = () => {
           {isActionMenuOpen && (
             <div className="absolute right-0 top-12 w-80 max-w-[calc(100vw-2rem)] bg-gemini-surface border border-gemini-border rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200 divide-y divide-gemini-border">
               <div className="py-2">
-                <button onClick={handlePublish} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-text bg-gemini-surface/50"><Rocket size={16} /> PUBLIER</button>
+                <button onClick={handlePublish} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-text bg-gemini-surface/50"><Rocket size={16} /> {t('create.menuPublish')}</button>
               </div>
               <div className="py-1">
-                <button onClick={() => { setIsShareModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-dim hover:text-gemini-text"><Briefcase size={16} /> PARTAGER SUR UN ESPACE</button>
-                <button onClick={() => { setIsTeamModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-dim hover:text-gemini-text"><Users size={16} /> INVITER DES COLLABORATEURS</button>
-                <button onClick={() => { setIsEmailModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-dim hover:text-gemini-text"><Mail size={16} /> ENVOYER PAR EMAIL</button>
+                <button onClick={() => { setIsShareModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-dim hover:text-gemini-text"><Briefcase size={16} /> {t('create.menuShare')}</button>
+                <button onClick={() => { setIsTeamModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-dim hover:text-gemini-text"><Users size={16} /> {t('create.menuInvite')}</button>
+                <button onClick={() => { setIsEmailModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-dim hover:text-gemini-text"><Mail size={16} /> {t('create.menuEmail')}</button>
               </div>
               <div className="py-1">
                  <button onClick={() => { setIsDownloadModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-gemini-dim hover:text-gemini-text group relative">
-                  <div className="flex items-center gap-3 whitespace-nowrap min-w-0"><FileDown size={16} className="shrink-0" /> <span className="truncate">TÉLÉCHARGER LE COURS</span></div>
+                  <div className="flex items-center gap-3 whitespace-nowrap min-w-0"><FileDown size={16} className="shrink-0" /> <span className="truncate">{t('create.menuDownload')}</span></div>
                   <div className="flex items-center gap-2 text-[9px] shrink-0 whitespace-nowrap">
                     <span onClick={(e) => { e.stopPropagation(); setIsActionMenuOpen(false); handleExportCourse('pdf'); }} className="px-1.5 py-0.5 rounded border border-gemini-border hover:border-gemini-accent hover:text-gemini-accent transition-colors">PDF</span>
                     <span onClick={(e) => { e.stopPropagation(); setIsActionMenuOpen(false); handleExportCourse('docx'); }} className="px-1.5 py-0.5 rounded border border-gemini-border hover:border-gemini-accent hover:text-gemini-accent transition-colors">DOCX</span>
                   </div>
                 </button>
-                <button onClick={() => { setIsSellModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-dim hover:text-gemini-text"><Store size={16} /> VENDRE (MARKETPLACE)</button>
+                <button onClick={() => { setIsSellModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-dim hover:text-gemini-text"><Store size={16} /> {t('create.menuSell')}</button>
               </div>
               <div className="py-1">
-                <button onClick={() => { handleDeleteCourseAction(); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-500/10 text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-red-500"><Trash2 size={16} /> SUPPRIMER</button>
+                <button onClick={() => { handleDeleteCourseAction(); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-500/10 text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-red-500"><Trash2 size={16} /> {t('create.menuDelete')}</button>
               </div>
             </div>
           )}
@@ -2103,7 +2105,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                           <button 
                             onClick={() => handlePlayMessage(i, m.content)}
                             className={`p-2 rounded-xl transition-all border shadow-sm ${speakingMessageIdx === i ? 'bg-gemini-accent text-gemini-bg border-gemini-accent' : 'bg-gemini-surface text-gemini-dim border-gemini-border hover:text-gemini-accent hover:border-gemini-accent'}`}
-                            title="Écouter le message"
+                            title={t('create.listenToMessage')}
                           >
                             {speakingMessageIdx === i ? <Volume2 size={14} className="animate-pulse" /> : <Play size={14} />}
                           </button>
@@ -2146,7 +2148,12 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                           return (
                           <button
                             key={sIdx}
-                            onClick={() => handleGenerateCourse(suggestion)}
+                            onClick={() => {
+                              // Fill the input instead of sending immediately — the
+                              // user can edit or add to it before submitting.
+                              setPrompt(suggestion);
+                              promptTextareaRef.current?.focus();
+                            }}
                             className="max-w-full px-4 py-2.5 bg-gemini-surface border border-gemini-border rounded-2xl text-[10px] font-bold tracking-wider text-gemini-dim hover:text-gemini-accent hover:border-gemini-accent hover:shadow-md hover:-translate-y-0.5 transition-all shadow-sm text-left group/sug"
                           >
                             <Plus size={12} className="inline mr-1 shrink-0 group-hover/sug:rotate-90 transition-transform" /> {suggestion}
@@ -2205,7 +2212,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                   </div>
                 )}
                 <div className="bg-gemini-surface border border-gemini-border rounded-2xl px-3 py-2 md:px-4 md:py-3 flex items-center gap-2 focus-within:border-gemini-dim transition-all duration-300 shadow-2xl relative min-h-[52px] max-w-4xl mx-auto w-full">
-                  <textarea rows={1} value={prompt} onChange={(e) => {
+                  <textarea ref={promptTextareaRef} rows={1} value={prompt} onChange={(e) => {
                     setPrompt(e.target.value);
                     e.target.style.height = 'auto';
                     e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
@@ -2220,7 +2227,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                       <button 
                         onClick={() => setIsChatOptionsOpen(!isChatOptionsOpen)}
                         className="p-1.5 text-gemini-dim hover:text-gemini-accent rounded-lg transition-colors"
-                        title="Options supplémentaires"
+                        title={t('create.moreOptions')}
                       >
                         <Plus size={18} className={`transition-transform duration-300 ${isChatOptionsOpen ? 'rotate-45' : ''}`} />
                       </button>
@@ -2288,10 +2295,10 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                {/* 4 Templates */}
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full mt-8">
                  {[
-                   { title: "Cours structuré 5 chapitres", icon: BookOpen, prompt: "Génère un cours structuré en 5 chapitres sur [SUJET]." },
-                   { title: "Mini-cours 3 modules", icon: Zap, prompt: "Génère un mini-cours rapide en 3 modules sur [SUJET]." },
-                   { title: "Plan intensif 7 jours", icon: Calendar, prompt: "Crée un plan intensif de 7 jours pour apprendre [SUJET]." },
-                   { title: "Cours avec quiz", icon: MessageSquare, prompt: "Crée un cours interactif incluant des quiz pour valider les connaissances sur [SUJET]." }
+                   { title: t('create.templates.chapters5Title'), icon: BookOpen, prompt: t('create.templates.chapters5Prompt') },
+                   { title: t('create.templates.mini3Title'), icon: Zap, prompt: t('create.templates.mini3Prompt') },
+                   { title: t('create.templates.intensive7Title'), icon: Calendar, prompt: t('create.templates.intensive7Prompt') },
+                   { title: t('create.templates.quizTitle'), icon: MessageSquare, prompt: t('create.templates.quizPrompt') }
                  ].map((template, idx) => (
                    <button 
                      key={idx}
@@ -2471,7 +2478,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                                    return (
                                      <React.Fragment key={block.id}>
                                        <div className={`flex items-center justify-center h-4 -my-2 group/inter transition-all relative z-20 ${isPreviewMode ? 'hidden' : 'opacity-0 hover:opacity-100'}`}>
-                                          <button onClick={() => openAiModal({ action: "generate-text", modId: mod.id, lesId: lesson.id, blockId: block.id, title: "Ajouter du contenu ici", placeholder: "Sujet du nouveau bloc..." })} className="bg-gemini-accent text-gemini-bg p-1 rounded-full scale-75 hover:scale-100 transition-all shadow-xl">
+                                          <button onClick={() => openAiModal({ action: "generate-text", modId: mod.id, lesId: lesson.id, blockId: block.id, title: t('create.addContentHereTitle'), placeholder: t('create.newBlockTopicPlaceholder') })} className="bg-gemini-accent text-gemini-bg p-1 rounded-full scale-75 hover:scale-100 transition-all shadow-xl">
                                              <Plus size={14} />
                                           </button>
                                           <div className="absolute left-0 right-0 h-px bg-gemini-accent/20 -z-10" />
@@ -2485,7 +2492,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                                             </div>
                                           )}
                                           {block.type === 'text' && (
-                                            <div className="prose-gemini" contentEditable={!isPreviewMode} suppressContentEditableWarning={true} onBlur={(e) => updateBlockValue(mod.id, lesson.id, block.id, e.currentTarget.textContent || '')} dangerouslySetInnerHTML={{ __html: marked.parse(block.value || '') }} />
+                                            <div className="prose-gemini" contentEditable={!isPreviewMode} suppressContentEditableWarning={true} onBlur={(e) => updateBlockValue(mod.id, lesson.id, block.id, htmlToMarkdown(e.currentTarget.innerHTML))} dangerouslySetInnerHTML={{ __html: marked.parse(block.value || '') }} />
                                           )}
                                           {block.type === 'image' && (
                                             <div className="rounded-3xl overflow-hidden border border-gemini-border shadow-lg">
@@ -2539,7 +2546,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                                           )}
                                           
                                           <div className={`absolute -top-4 right-4 flex gap-1 transition-opacity bg-gemini-surface border border-gemini-border rounded-lg shadow-lg p-1 z-[100] ${isPreviewMode ? 'hidden' : 'opacity-0 group-hover/block:opacity-100'}`}>
-                                            <button onClick={() => openAiModal({ action: 'refine-regenerate', modId: mod.id, lesId: lesson.id, blockId: block.id, title: 'Améliorer avec l\'IA', placeholder: 'Quelles modifications apporter ?' })} className="p-1.5 hover:bg-gemini-bg rounded text-gemini-dim hover:text-gemini-accent" title="Améliorer avec l'IA"><Sparkles size={14}/></button>
+                                            <button onClick={() => openAiModal({ action: 'refine-regenerate', modId: mod.id, lesId: lesson.id, blockId: block.id, title: t('create.improveWithAiTitle'), placeholder: t('create.improveModalPlaceholder') })} className="p-1.5 hover:bg-gemini-bg rounded text-gemini-dim hover:text-gemini-accent" title={t('create.improveWithAiTitle')}><Sparkles size={14}/></button>
                                             {block.type === 'image' && (
                                               <button onClick={() => downloadMedia(block.value, mediaFilename(`${lesson.title}-${bIdx + 1}`, 'jpg'))} className="p-1.5 hover:bg-gemini-bg rounded text-gemini-dim hover:text-gemini-accent" title={t('create.downloadImage')}><Download size={14}/></button>
                                             )}
@@ -2573,10 +2580,10 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                                                  )}
                                               </div>
                                               <div className="w-px h-4 bg-gemini-border mx-0.5" />
-                                              <button onClick={() => openAiModal({ action: "generate-image", modId: mod.id, lesId: lesson.id, blockId: block.id, title: "Générer une Image", placeholder: "Décrivez l'image que vous souhaitez ajouter..." })} className="p-2 hover:bg-gemini-bg rounded-full text-gemini-dim hover:text-gemini-accent" title="Générer une Image"><ImageIcon size={14}/></button>
-                                              <button onClick={() => handleBlockAction(mod.id, lesson.id, block.id, 'add-ar', '')} className="p-2 hover:bg-gemini-bg rounded-full text-gemini-dim hover:text-gemini-accent" title="Ajouter un Modèle 3D"><BoxSelect size={14}/></button>
-                                              <button onClick={() => openAiModal({ action: "generate-video", modId: mod.id, lesId: lesson.id, blockId: block.id, title: "Générer une Vidéo", placeholder: "Décrivez le sujet de la vidéo explicative..." })} className="p-2 hover:bg-gemini-bg rounded-full text-gemini-dim hover:text-gemini-accent" title="Générer une Vidéo"><VideoIcon size={14}/></button>
-                                              <button onClick={() => openAiModal({ action: "generate-quiz", modId: mod.id, lesId: lesson.id, blockId: block.id, title: "Générer un Quiz", placeholder: "Sur quel sujet doit porter le quiz ?" })} className="p-2 hover:bg-gemini-bg rounded-full text-gemini-dim hover:text-gemini-accent" title="Générer un Quiz"><HelpCircle size={14}/></button>
+                                              <button onClick={() => openAiModal({ action: "generate-image", modId: mod.id, lesId: lesson.id, blockId: block.id, title: t('create.generateImageModalTitle'), placeholder: t('create.describeImagePlaceholder') })} className="p-2 hover:bg-gemini-bg rounded-full text-gemini-dim hover:text-gemini-accent" title={t('create.generateImageModalTitle')}><ImageIcon size={14}/></button>
+                                              <button onClick={() => handleBlockAction(mod.id, lesson.id, block.id, 'add-ar', '')} className="p-2 hover:bg-gemini-bg rounded-full text-gemini-dim hover:text-gemini-accent" title={t('create.addArModelTitle')}><BoxSelect size={14}/></button>
+                                              <button onClick={() => openAiModal({ action: "generate-video", modId: mod.id, lesId: lesson.id, blockId: block.id, title: t('create.generateVideoModalTitle'), placeholder: t('create.describeVideoPlaceholder') })} className="p-2 hover:bg-gemini-bg rounded-full text-gemini-dim hover:text-gemini-accent" title={t('create.generateVideoModalTitle')}><VideoIcon size={14}/></button>
+                                              <button onClick={() => openAiModal({ action: "generate-quiz", modId: mod.id, lesId: lesson.id, blockId: block.id, title: t('create.generateQuizModalTitle'), placeholder: t('create.quizTopicPlaceholder') })} className="p-2 hover:bg-gemini-bg rounded-full text-gemini-dim hover:text-gemini-accent" title={t('create.generateQuizModalTitle')}><HelpCircle size={14}/></button>
                                             </div>
                                           </div>
                                        </div>
@@ -2585,7 +2592,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                                  })}
                                  <div className="flex items-center justify-center h-16 pt-4 animate-in slide-in-from-bottom-2 duration-500">
                                     <button 
-                                      onClick={() => openAiModal({ action: "generate-text", modId: mod.id, lesId: lesson.id, title: "Ajouter du contenu", placeholder: "De quoi doit parler ce nouveau bloc ?" })} 
+                                      onClick={() => openAiModal({ action: "generate-text", modId: mod.id, lesId: lesson.id, title: t('create.addContentTitle'), placeholder: t('create.newBlockTopicPlaceholder') })}
                                       className="flex items-center gap-3 px-8 py-3 bg-gemini-accent text-gemini-bg rounded-full text-xs font-black uppercase tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all group"
                                     >
                                        <Plus size={16} className="group-hover:rotate-90 transition-transform duration-300" /> Ajouter du contenu

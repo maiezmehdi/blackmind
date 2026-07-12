@@ -163,12 +163,28 @@ export const findYoutubeVideo = async (query: string): Promise<string | null> =>
   }
 };
 
+// Some free-tier fallback models occasionally answer with a moderation /
+// classification label instead of real content (e.g. "User Safety: safe")
+// when they don't follow the system prompt well. Treat that as a failed
+// attempt so the next provider in the chain gets tried, instead of
+// surfacing that junk straight to the user.
+const isUsableResponse = (text: string, expectJson: boolean): boolean => {
+  const t = (text || '').trim();
+  if (!t) return false;
+  if (expectJson && !t.includes('{')) return false;
+  if (/^(user safety|safety rating|content flagged|i cannot assist|i can't assist)/i.test(t)) return false;
+  if (expectJson && t.length < 20) return false;
+  return true;
+};
+
 // Unified text generation: try each Gemini key in order, then Qwen.
 const generateText = async (system: string, user: string, opts: { json?: boolean; maxTokens?: number } = {}): Promise<string> => {
   let lastErr: any = new Error('No AI provider configured');
   for (let i = 0; i < GEMINI_KEYS.length; i++) {
     try {
-      return await geminiOnce(GEMINI_KEYS[i], system, user, !!opts.json);
+      const text = await geminiOnce(GEMINI_KEYS[i], system, user, !!opts.json);
+      if (!isUsableResponse(text, !!opts.json)) throw new Error(`unusable response: ${text.slice(0, 80)}`);
+      return text;
     } catch (e: any) {
       lastErr = e;
       console.warn(`[ai] Gemini key ${i + 1} failed, trying next:`, e?.message || e);
@@ -176,10 +192,12 @@ const generateText = async (system: string, user: string, opts: { json?: boolean
   }
   if (QWEN_KEY) {
     try {
-      return await qwenChat(
+      const text = await qwenChat(
         [system ? { role: 'system', content: system } : null, { role: 'user', content: user }].filter(Boolean) as ChatMessage[],
         { json: opts.json, maxTokens: opts.maxTokens },
       );
+      if (!isUsableResponse(text, !!opts.json)) throw new Error(`unusable response: ${text.slice(0, 80)}`);
+      return text;
     } catch (e: any) {
       lastErr = e;
       console.warn('[ai] Qwen fallback failed:', e?.message || e);
