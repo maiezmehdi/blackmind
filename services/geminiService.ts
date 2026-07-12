@@ -273,6 +273,54 @@ export const generateCourseStructure = async (prompt: string, thinking: boolean 
   }
 };
 
+export const editCourseStructure = async (
+  existingCourse: { title: string; description: string; category: string; modules: any[] },
+  instruction: string,
+  thinking: boolean = false,
+  language: string = 'fr',
+): Promise<string> => {
+  const systemInstruction = `
+    Rôle : Tu es "Blackmind Architect".
+    Style : Minimaliste, intelligent, précis, direct, légèrement provocateur. "No fluff".
+    MISSION : Tu reçois un cours EXISTANT (JSON) et une instruction de modification donnée par son auteur dans le fil de discussion. Applique UNIQUEMENT ce qui est demandé (ajouter un module/leçon/bloc, réécrire une partie précise, changer le titre, etc.) et renvoie le cours COMPLET mis à jour, dans le même schéma JSON.
+
+    RÈGLES STRICTES :
+    - Ceci est une ÉDITION, pas une nouvelle création : ne repars jamais de zéro sur un autre sujet.
+    - Conserve tel quel tout le contenu existant qui n'est pas concerné par la demande (ne réécris pas des modules/leçons non mentionnés).
+    - Conserve les "id" des modules/leçons/blocs existants inchangés.
+    - Si la demande implique d'ajouter du contenu, ajoute-le à la suite avec de nouveaux "id" uniques (n'écrase pas l'existant).
+    - Ne duplique jamais le bloc "overview" : il ne doit rester que dans la première leçon du premier module.
+    - TOUT le contenu DOIT être rédigé dans la langue : ${language}.
+
+    SCHEMA JSON STRICT (réponds UNIQUEMENT avec ce JSON, sans texte autour) :
+    {
+      "commentary": "Courte confirmation de ce qui a été modifié.",
+      "suggestions": ["...", "...", "..."],
+      "course": {
+        "title": "...",
+        "description": "...",
+        "category": "...",
+        "modules": [ /* structure identique à celle du cours existant, mise à jour */ ]
+      }
+    }
+  `;
+
+  try {
+    return await generateText(
+      systemInstruction,
+      `Cours existant (JSON) :\n${JSON.stringify(existingCourse)}\n\nInstruction de l'auteur : "${instruction}"\n\nRéponds en JSON avec le cours complet mis à jour.`,
+      { json: true, maxTokens: 8000 },
+    );
+  } catch (e: any) {
+    console.error('[ai] Course edit failed', e?.message || e);
+    return JSON.stringify({
+      commentary: 'Erreur de génération.',
+      suggestions: ['Réessayer'],
+      course: { title: 'Erreur', description: '', category: 'Erreur', modules: [] },
+    });
+  }
+};
+
 export const refineContent = async (text: string, action: string, thinking: boolean = false): Promise<string> => {
   try {
     return (await generateText(

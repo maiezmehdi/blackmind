@@ -95,7 +95,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { marked } from 'marked';
-import { generateCourseStructure, generateStorytellingStructure, refineContent, generateAiBlock, extractJson } from '../services/geminiService';
+import { generateCourseStructure, editCourseStructure, generateStorytellingStructure, refineContent, generateAiBlock, extractJson } from '../services/geminiService';
 import { exportCoursePdf, exportCourseDocx } from '../services/exportService';
 import { makeGradientCover } from '../services/coverImage';
 import { downloadMedia, mediaFilename } from '../services/download';
@@ -587,7 +587,18 @@ const CreatePage: React.FC<CreatePageProps> = () => {
         setGeneratedStory(responseData);
         setMessages(prev => [...prev, { role: 'assistant', content: t('create.storyGenerated', { count: responseData.modules.length }), suggestions: ["__ACTION_PREVIEW__"], timestamp: new Date() }]);
       } else {
-        const response = await generateCourseStructure(activePrompt, isThinkingMode, contentLanguage);
+        // A course is already open in the canvas: treat this prompt as an
+        // instruction to modify/extend it, not as a request to start a
+        // brand new, unrelated course from scratch.
+        const courseBeingEdited = generatedCourse;
+        const response = courseBeingEdited
+          ? await editCourseStructure(
+              { title: courseBeingEdited.title, description: courseBeingEdited.description, category: courseBeingEdited.category, modules: courseBeingEdited.modules },
+              activePrompt,
+              isThinkingMode,
+              contentLanguage,
+            )
+          : await generateCourseStructure(activePrompt, isThinkingMode, contentLanguage);
         let responseData = JSON.parse(extractJson(response));
 
         const courseData = responseData.course || responseData;
@@ -602,44 +613,56 @@ const CreatePage: React.FC<CreatePageProps> = () => {
           return;
         }
 
-        const newCourse: Course = {
-          id: Math.random().toString(36).substr(2, 9),
-          ...courseData,
-          image: `https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=1200`,
-          progress: 0,
-          author: currentUser?.name || 'Anonyme',
-          category: courseData.category || 'Général',
-          collaborators: []
-        };
+        if (courseBeingEdited) {
+          const updatedCourse: Course = {
+            ...courseBeingEdited,
+            title: courseData.title || courseBeingEdited.title,
+            description: courseData.description || courseBeingEdited.description,
+            category: courseData.category || courseBeingEdited.category,
+            modules: courseData.modules,
+          };
+          setGeneratedCourse(updatedCourse);
+          setMessages(prev => [...prev, { role: 'assistant', content: commentary, suggestions: [...(suggestions || []), "__ACTION_PREVIEW__"], timestamp: new Date() }]);
+        } else {
+          const newCourse: Course = {
+            id: Math.random().toString(36).substr(2, 9),
+            ...courseData,
+            image: `https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=1200`,
+            progress: 0,
+            author: currentUser?.name || 'Anonyme',
+            category: courseData.category || 'Général',
+            collaborators: []
+          };
 
-        setGeneratedStory(null);
-        setGeneratedCourse(newCourse);
-        setIsPublished(false);
-        setMessages(prev => [...prev, { role: 'assistant', content: commentary, suggestions: [...(suggestions || []), "__ACTION_PREVIEW__"], timestamp: new Date() }]);
+          setGeneratedStory(null);
+          setGeneratedCourse(newCourse);
+          setIsPublished(false);
+          setMessages(prev => [...prev, { role: 'assistant', content: commentary, suggestions: [...(suggestions || []), "__ACTION_PREVIEW__"], timestamp: new Date() }]);
 
-        // Generate the course cover right away from the generated content
-        // (async, non-blocking — the placeholder stays until the image lands).
-        // English, style-directed prompt → cleaner, well-composed covers from Flux.
-        const coverPrompt = `Modern minimalist online course cover about "${newCourse.title}". ${newCourse.description || activePrompt}. Professional editorial illustration, clean balanced composition, soft depth, cinematic lighting, high quality, no distorted objects. Purely visual image with absolutely no text, no letters, no words, no writing, no captions, no watermark, no logo anywhere in the image.`;
-        setIsGeneratingCover(true);
-        const setCover = (src: string) =>
-          setGeneratedCourse(prev => (prev && prev.id === newCourse.id ? { ...prev, image: src } : prev));
-        const applyCover = (img: any) => {
-          if (typeof img === 'string' && img) {
-            // Verify the image (Gemini data URL or free Pollinations URL) really
-            // loads; fall back to a unique on-brand gradient if it doesn't.
-            const test = new Image();
-            test.onload = () => { setCover(img); setIsGeneratingCover(false); };
-            test.onerror = () => { setCover(makeGradientCover(newCourse.title)); setIsGeneratingCover(false); };
-            test.src = img;
-          } else {
-            setCover(makeGradientCover(newCourse.title));
-            setIsGeneratingCover(false);
-          }
-        };
-        generateAiBlock('image', coverPrompt, { aspectRatio: '16:9' })
-          .then(applyCover)
-          .catch(() => applyCover(null));
+          // Generate the course cover right away from the generated content
+          // (async, non-blocking — the placeholder stays until the image lands).
+          // English, style-directed prompt → cleaner, well-composed covers from Flux.
+          const coverPrompt = `Modern minimalist online course cover about "${newCourse.title}". ${newCourse.description || activePrompt}. Professional editorial illustration, clean balanced composition, soft depth, cinematic lighting, high quality, no distorted objects. Purely visual image with absolutely no text, no letters, no words, no writing, no captions, no watermark, no logo anywhere in the image.`;
+          setIsGeneratingCover(true);
+          const setCover = (src: string) =>
+            setGeneratedCourse(prev => (prev && prev.id === newCourse.id ? { ...prev, image: src } : prev));
+          const applyCover = (img: any) => {
+            if (typeof img === 'string' && img) {
+              // Verify the image (Gemini data URL or free Pollinations URL) really
+              // loads; fall back to a unique on-brand gradient if it doesn't.
+              const test = new Image();
+              test.onload = () => { setCover(img); setIsGeneratingCover(false); };
+              test.onerror = () => { setCover(makeGradientCover(newCourse.title)); setIsGeneratingCover(false); };
+              test.src = img;
+            } else {
+              setCover(makeGradientCover(newCourse.title));
+              setIsGeneratingCover(false);
+            }
+          };
+          generateAiBlock('image', coverPrompt, { aspectRatio: '16:9' })
+            .then(applyCover)
+            .catch(() => applyCover(null));
+        }
       }
     } catch (err: any) {
       setError("Erreur de génération.");
