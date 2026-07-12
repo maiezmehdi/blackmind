@@ -2045,7 +2045,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
         </div>
       )}
 
-      <div className="h-14 border-b border-gemini-border flex items-center justify-between px-6 bg-gemini-header shrink-0 z-20">
+      <div className="h-[5.5rem] border-b border-gemini-border flex items-center justify-between px-6 bg-gemini-header shrink-0 z-20">
         <div className="flex items-center gap-4">
           {!isPreviewMode && (
             <div className="flex bg-gemini-sidebar p-1 rounded-full border border-gemini-border">
