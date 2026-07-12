@@ -35,7 +35,7 @@ const Header: React.FC<HeaderProps> = ({ isMobile, onSidebarToggle }) => {
       : 'Architect';
 
   return (
-    <header className="h-16 border-b border-gemini-border px-4 md:px-8 flex items-center justify-between bg-gemini-header/90 backdrop-blur-md sticky top-0 z-40 animate-in fade-in duration-300">
+    <header className="h-16 px-4 md:px-8 flex items-center justify-between sticky top-0 z-40 animate-in fade-in duration-300">
       <div className="flex items-center gap-3 flex-1 min-w-0">
         {isMobile && (
           <button
