@@ -1775,12 +1775,12 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                             );
                           }
                           return (
-                          <button 
+                          <button
                             key={sIdx}
                             onClick={() => handleGenerateCourse(suggestion)}
-                            className="px-4 py-2.5 bg-gemini-surface border border-gemini-border rounded-full text-[10px] font-bold tracking-wider text-gemini-dim hover:text-gemini-accent hover:border-gemini-accent hover:shadow-md hover:-translate-y-0.5 transition-all shadow-sm whitespace-nowrap group/sug"
+                            className="max-w-full px-4 py-2.5 bg-gemini-surface border border-gemini-border rounded-2xl text-[10px] font-bold tracking-wider text-gemini-dim hover:text-gemini-accent hover:border-gemini-accent hover:shadow-md hover:-translate-y-0.5 transition-all shadow-sm text-left group/sug"
                           >
-                            <Plus size={12} className="inline mr-1 group-hover/sug:rotate-90 transition-transform" /> {suggestion}
+                            <Plus size={12} className="inline mr-1 shrink-0 group-hover/sug:rotate-90 transition-transform" /> {suggestion}
                           </button>
                         )})}
                      </div>
