@@ -608,16 +608,29 @@ const CreatePage: React.FC<CreatePageProps> = () => {
               contentLanguage,
             )
           : await generateCourseStructure(activePrompt, isThinkingMode, contentLanguage);
-        let responseData = JSON.parse(extractJson(response));
+
+        let responseData: any;
+        try {
+          responseData = JSON.parse(extractJson(response));
+        } catch {
+          // The model answered in plain conversational text instead of the
+          // required JSON schema (this happens on casual small talk, e.g.
+          // "hi") — show that reply instead of failing with a generic error,
+          // and leave whatever course is open untouched.
+          setMessages(prev => [...prev, { role: 'assistant', content: (response || '').trim() || t('create.generationError'), timestamp: new Date() }]);
+          setIsGenerating(false);
+          return;
+        }
 
         const courseData = responseData.course || responseData;
         const commentary = responseData.commentary || "Architecture générée.";
         const suggestions = responseData.suggestions || [];
 
-        // Failed generation returns an empty "Erreur" course — surface a clear
-        // message instead of creating a broken course in the workspace.
+        // Failed generation returns an empty "Erreur" course — surface the
+        // model's own commentary if it gave one, otherwise a clear fallback,
+        // instead of creating a broken course in the workspace.
         if (!courseData || courseData.title === 'Erreur' || !Array.isArray(courseData.modules) || courseData.modules.length === 0) {
-          setMessages(prev => [...prev, { role: 'assistant', content: t('create.quotaError'), timestamp: new Date() }]);
+          setMessages(prev => [...prev, { role: 'assistant', content: responseData.commentary || t('create.quotaError'), timestamp: new Date() }]);
           setIsGenerating(false);
           return;
         }

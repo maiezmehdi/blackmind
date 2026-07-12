@@ -194,6 +194,8 @@ export const generateCourseStructure = async (prompt: string, thinking: boolean 
     Style : Minimaliste, intelligent, précis, direct, légèrement provocateur. "No fluff".
     MISSION : Génère une structure JSON pour un cours complet. TOUT le contenu généré (titres, modules, leçons, textes, quiz) DOIT ETRE redigé dans la langue spécifiée: ${language}.
 
+    SI LE MESSAGE N'EST PAS UN SUJET DE COURS (salutation comme "salut"/"hi", message vague, question générale sans sujet clair) : ne force pas une structure inventée. Réponds avec chaleur et naturel dans "commentary" (accueille l'auteur, demande-lui sur quel sujet il veut construire son cours) et renvoie "course": { "title": "Erreur", "description": "", "category": "Erreur", "modules": [] }.
+
     IMPORTANT : STRUCTURE PÉDAGOGIQUE OBLIGATOIRE
     Le TOUT PREMIER bloc de la TOUTE PREMIÈRE leçon du premier module DOIT être un bloc de type "overview" contenant les métadonnées pédagogiques.
 
