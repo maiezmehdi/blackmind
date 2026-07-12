@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { ShoppingBag, Star, Zap, Users, Search, Filter, TrendingUp, Sparkles, ArrowRight, Heart, ShoppingCart, CheckCircle2, X, Award, Play } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCourseContext } from '../store/useCourseStore';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Course } from '../types';
@@ -18,14 +18,17 @@ const MarketplacePage: React.FC = () => {
   };
 
   const navigate = useNavigate();
-  const [selectedCategoryKey, setSelectedCategoryKey] = useState("all");
+  const [searchParams] = useSearchParams();
+  // Using category keys for filtering logic
+  const categoryKeys = ["all", "favorites", "ai", "dev", "design", "business", "languages", "science", "academic"];
+  const initialCategory = searchParams.get('category');
+  const [selectedCategoryKey, setSelectedCategoryKey] = useState(
+    initialCategory && categoryKeys.includes(initialCategory) ? initialCategory : "all"
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
-
-  // Using category keys for filtering logic
-  const categoryKeys = ["all", "favorites", "ai", "dev", "design", "business", "languages", "science"];
 
   const featuredCourse = marketplaceCourses[0];
 

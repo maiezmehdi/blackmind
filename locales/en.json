@@ -6,7 +6,7 @@
     "delete": "Delete",
     "search": "Search",
     "loading": "Loading...",
-    "confirmDeleteCourse": "Are you sure you want to delete this course?",
+    "confirmDeleteCourse": "Delete the course \"{title}\"?",
     "searchCourse": "Search a course...",
     "anonymous": "Anonymous",
     "general": "General",
@@ -93,7 +93,11 @@
     "hours": "Hours",
     "certificates": "Certificates",
     "streak": "Streak",
-    "global": "Overall progress"
+    "global": "Overall progress",
+    "addGoal": "Add a goal",
+    "newGoalTitlePlaceholder": "E.g. Finish 3 lessons",
+    "lessons": "Lessons",
+    "noGoals": "No goals yet. Add one!"
   },
   "settings": {
     "title": "Settings",

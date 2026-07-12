@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Sparkles, TrendingUp, Book, Brain, Code, Palette, Globe, Trash2 } from 'lucide-react';
+import { Search, Sparkles, TrendingUp, Book, Brain, Code, Palette, Globe, Trash2, AlertCircle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCourseContext } from '../store/useCourseStore';
 import { useLanguage } from '../contexts/LanguageContext';
-import DarkVeil from '../components/DarkVeil';
 
 const ArIcon = ({ size = 12, className = "" }: { size?: number, className?: string }) => (
   <svg 
@@ -27,7 +26,7 @@ const ArIcon = ({ size = 12, className = "" }: { size?: number, className?: stri
   </svg>
 );
 
-const CourseCard = ({ course, onDelete, labelStart, labelContinue, t, to }: any) => {
+const CourseCard = ({ course, onDeleteRequest, labelStart, labelContinue, t, to }: any) => {
   // Check if any lesson contains an AR block
   const hasAr = course.modules?.some((m: any) =>
     m.lessons?.some((l: any) =>
@@ -61,14 +60,12 @@ const CourseCard = ({ course, onDelete, labelStart, labelContinue, t, to }: any)
             </div>
           )}
         </div>
-        {onDelete && (
-          <button 
-            onClick={(e) => { 
-              e.preventDefault(); 
-              e.stopPropagation(); 
-              if (window.confirm(t('common.confirmDeleteCourse'))) {
-                onDelete(course.id);
-              }
+        {onDeleteRequest && (
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDeleteRequest(course);
             }}
             className="absolute top-3 left-3 p-1.5 bg-neutral-900/60 hover:bg-red-500 text-neutral-400 hover:text-white rounded-lg transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm z-10"
           >
@@ -107,6 +104,7 @@ const HomePage: React.FC = () => {
   const heroRef = useRef<HTMLDivElement>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [heroPrompt, setHeroPrompt] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
 
   // Send the user's typed intent to the Create page (pre-fills the AI chat).
   const goCreate = (prompt?: string) => {
@@ -120,12 +118,12 @@ const HomePage: React.FC = () => {
     `/create?prompt=${encodeURIComponent(t('home.suggestPrefill', { title }))}`;
 
   const categories = [
-    { icon: Code, label: t('categories.dev') },
-    { icon: Palette, label: t('categories.design') },
-    { icon: Brain, label: t('categories.ai') },
-    { icon: Globe, label: t('categories.languages') },
-    { icon: TrendingUp, label: t('categories.business') },
-    { icon: Book, label: t('categories.academic') },
+    { key: 'dev', icon: Code, label: t('categories.dev') },
+    { key: 'design', icon: Palette, label: t('categories.design') },
+    { key: 'ai', icon: Brain, label: t('categories.ai') },
+    { key: 'languages', icon: Globe, label: t('categories.languages') },
+    { key: 'business', icon: TrendingUp, label: t('categories.business') },
+    { key: 'academic', icon: Book, label: t('categories.academic') },
   ];
 
   // Mock AI Suggestions tailored to the user profile
@@ -170,18 +168,6 @@ const HomePage: React.FC = () => {
         ref={heroRef}
         className="relative text-center space-y-8 py-20 rounded-[3rem] overflow-hidden border border-gemini-border group bg-gemini-sidebar/20 transition-all duration-500"
       >
-        {/* DarkVeil Background */}
-        <div className="absolute inset-0 -z-10 opacity-60">
-          <DarkVeil
-            hueShift={0}
-            noiseIntensity={0}
-            scanlineIntensity={0}
-            speed={0.5}
-            scanlineFrequency={0}
-            warpAmount={0}
-          />
-        </div>
-        
         {/* Enhanced Soft Glow Gradient that follows mouse */}
         <div 
           className="absolute inset-0 pointer-events-none transition-opacity duration-500 group-hover:opacity-100 opacity-0"
@@ -205,8 +191,11 @@ const HomePage: React.FC = () => {
 
         {/* Enhanced Floating Search Bar (Halo Effect) */}
         <div className="max-w-3xl mx-auto relative group/search z-10 px-4">
-          {/* Glowing Halo */}
-          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-20 group-hover/search:opacity-60 blur-xl transition duration-500 group-hover/search:duration-200"></div>
+          {/* Glowing Halo — subtle at rest, brighter on hover (desktop only:
+              there's no hover state on touch, so the resting opacity has to
+              look intentional on its own rather than like a rendering
+              artifact behind the search bar). */}
+          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-0 md:opacity-10 group-hover/search:opacity-50 blur-md transition duration-500 group-hover/search:duration-200"></div>
           
           <div className="relative flex items-center bg-gemini-surface/90 backdrop-blur-xl border border-gemini-border rounded-full p-2 pl-6 shadow-2xl focus-within:border-indigo-500/50 transition-all duration-300 hover:scale-[1.01] focus-within:scale-[1.01]">
             <Search className="text-gemini-dim mr-4 shrink-0 group-focus-within/search:text-indigo-500 transition-colors" size={20} />
@@ -240,7 +229,7 @@ const HomePage: React.FC = () => {
               <CourseCard
                 key={course.id}
                 course={course}
-                onDelete={deleteCourse}
+                onDeleteRequest={(c: any) => setDeleteConfirm({ id: c.id, title: c.title })}
                 labelContinue={t('home.continue')}
                 labelStart={t('home.start')}
                 t={t}
@@ -304,8 +293,12 @@ const HomePage: React.FC = () => {
           <h3 className="text-2xl font-bold font-outfit text-gemini-accent">{t('home.browse')}</h3>
         </div>
         <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-4 px-4 scroll-smooth">
-          {categories.map((cat, i) => (
-            <button key={i} className="flex-shrink-0 flex items-center gap-3 bg-gemini-surface/50 border border-gemini-border rounded-2xl p-4 hover:bg-gemini-surface hover:border-gemini-dim transition-all min-w-[200px] shadow-sm group">
+          {categories.map((cat) => (
+            <button
+              key={cat.key}
+              onClick={() => navigate(`/marketplace?category=${cat.key}`)}
+              className="flex-shrink-0 flex items-center gap-3 bg-gemini-surface/50 border border-gemini-border rounded-2xl p-4 hover:bg-gemini-surface hover:border-gemini-dim transition-all min-w-[200px] shadow-sm group"
+            >
               <div className="p-2.5 rounded-xl bg-gemini-bg text-gemini-dim group-hover:text-gemini-accent transition-colors">
                 <cat.icon size={24} />
               </div>
@@ -319,7 +312,7 @@ const HomePage: React.FC = () => {
       <section className="space-y-6">
         <div className="flex items-center justify-between">
           <h3 className="text-2xl font-bold font-outfit text-gemini-accent">{t('home.popular')}</h3>
-          <button className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim hover:text-gemini-accent transition-colors">{t('home.seeAll')}</button>
+          <button onClick={() => navigate('/marketplace')} className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim hover:text-gemini-accent transition-colors">{t('home.seeAll')}</button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80">
           <CourseCard t={t} to={suggestLink('Maîtriser le Prompt Engineering')} labelContinue={t('home.continue')} labelStart={t('home.start')} course={{id: 'p1', title: 'Maîtriser le Prompt Engineering', author: 'Gemini Expert', category: 'IA', progress: 0}} />
@@ -327,6 +320,40 @@ const HomePage: React.FC = () => {
           <CourseCard t={t} to={suggestLink('Introduction à React 19')} labelContinue={t('home.continue')} labelStart={t('home.start')} course={{id: 'p3', title: 'Introduction à React 19', author: 'Frontend Masters', category: 'Dev', progress: 0}} />
         </div>
       </section>
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setDeleteConfirm(null)}></div>
+          <div className="relative w-full max-w-md bg-gemini-surface border border-gemini-border rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-10 text-center space-y-6">
+              <div className="w-20 h-20 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-2 border border-red-500/20">
+                <AlertCircle size={40} />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-2xl font-bold font-outfit text-gemini-text">{t('common.confirmDeleteCourse', { title: deleteConfirm.title })}</h3>
+                <p className="text-sm text-gemini-dim leading-relaxed">{t('common.confirmDeleteDesc')}</p>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="flex-1 px-6 py-4 bg-gemini-bg border border-gemini-border rounded-2xl text-[10px] font-bold uppercase tracking-widest text-gemini-text hover:bg-gemini-surface transition-all"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  onClick={() => {
+                    deleteCourse(deleteConfirm.id);
+                    setDeleteConfirm(null);
+                  }}
+                  className="flex-1 px-6 py-4 bg-red-500 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-600 shadow-lg active:scale-95 transition-all"
+                >
+                  {t('common.confirm')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

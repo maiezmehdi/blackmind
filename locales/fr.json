@@ -104,7 +104,11 @@
     "streak": "Série",
     "dailyActivity": "Temps d'étude quotidien",
     "goals": "Objectifs",
-    "global": "Progression globale"
+    "global": "Progression globale",
+    "addGoal": "Ajouter un objectif",
+    "newGoalTitlePlaceholder": "Ex : Terminer 3 leçons",
+    "lessons": "Leçons",
+    "noGoals": "Aucun objectif pour l'instant. Ajoutez-en un !"
   },
   "days": {
     "mon": "Lun",

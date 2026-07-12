@@ -33,7 +33,7 @@ marked.setOptions({
 const LearnPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { courses, updateCourse, remixCourse, t } = useCourseContext();
+  const { courses, updateCourse, remixCourse, logLessonActivity, t } = useCourseContext();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   
@@ -56,6 +56,20 @@ const LearnPage: React.FC = () => {
     setShowCompletionState(false);
     if (scrollContainerRef.current) scrollContainerRef.current.scrollTo(0, 0);
   }, [id]);
+
+  // Recompute on every lesson change, not just the "Next" button — jumping
+  // straight to a lesson via the syllabus sidebar previously left progress
+  // stuck wherever it started, since only handleNext used to update it.
+  useEffect(() => {
+    if (!course) return;
+    const total = course.modules.reduce((acc, m) => acc + m.lessons.length, 0);
+    if (total === 0) return;
+    const curr = course.modules.slice(0, currentModuleIdx).reduce((acc, m) => acc + m.lessons.length, 0) + currentLessonIdx + 1;
+    const progress = Math.round((curr / total) * 100);
+    if (progress > (course.progress || 0)) updateCourse({ ...course, progress });
+    logLessonActivity();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentModuleIdx, currentLessonIdx, course?.id]);
 
   useEffect(() => {
     if (contentRef.current && (window as any).renderMathInElement) {
@@ -96,7 +110,6 @@ const LearnPage: React.FC = () => {
     } else setShowCompletionState(true);
     
     if (scrollContainerRef.current) scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-    updateProgress();
   };
 
   const handlePrev = () => {
@@ -108,13 +121,6 @@ const LearnPage: React.FC = () => {
       setCurrentLessonIdx(course.modules[prevIdx].lessons.length - 1);
     }
     if (scrollContainerRef.current) scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const updateProgress = () => {
-    const total = course.modules.reduce((acc, m) => acc + m.lessons.length, 0);
-    const curr = course.modules.slice(0, currentModuleIdx).reduce((acc, m) => acc + m.lessons.length, 0) + currentLessonIdx + 1;
-    const progress = Math.round((curr / total) * 100);
-    if (progress > (course.progress || 0)) updateCourse({ ...course, progress });
   };
 
   return (

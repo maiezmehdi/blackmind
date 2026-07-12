@@ -3,6 +3,17 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { Course, UserProfile, Workspace, Invitation, WorkspaceMember, Language, SubscriptionTier, AccessibilitySettings, AppPreferences } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 
+// A course has no real per-lesson duration data, so activity/goal progress is
+// estimated using a flat reading-time assumption per lesson visited.
+export const MINUTES_PER_LESSON = 8;
+
+export interface WeeklyGoal {
+  id: string;
+  title: string;
+  target: number;
+  unit: 'lessons' | 'minutes';
+}
+
 interface CourseContextType {
   courses: Course[];
   marketplaceCourses: Course[];
@@ -14,6 +25,8 @@ interface CourseContextType {
   language: Language;
   accessibility: AccessibilitySettings;
   preferences: AppPreferences;
+  studyLog: Record<string, number>;
+  weeklyGoals: WeeklyGoal[];
 
   // Helpers
   t: (key: string, variables?: any) => string;
@@ -22,6 +35,9 @@ interface CourseContextType {
   resetAccessibility: () => void;
   updatePreferences: (prefs: Partial<AppPreferences>) => void;
   resetPreferences: () => void;
+  logLessonActivity: () => void;
+  addWeeklyGoal: (title: string, target: number, unit: 'lessons' | 'minutes') => void;
+  removeWeeklyGoal: (id: string) => void;
 
   setActiveCourse: (course: Course | null) => void;
   addCourse: (course: Course) => void;
@@ -361,9 +377,27 @@ export const CourseProvider = ({ children }: { children?: React.ReactNode }) => 
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [activeCourse, setActiveCourse] = useState<Course | null>(null);
 
+  const [studyLog, setStudyLog] = useState<Record<string, number>>(() => {
+    const saved = localStorage.getItem('blackmind_study_log');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  const [weeklyGoals, setWeeklyGoals] = useState<WeeklyGoal[]>(() => {
+    const saved = localStorage.getItem('blackmind_weekly_goals');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   useEffect(() => {
     localStorage.setItem('blackmind_courses', JSON.stringify(courses));
   }, [courses]);
+
+  useEffect(() => {
+    localStorage.setItem('blackmind_study_log', JSON.stringify(studyLog));
+  }, [studyLog]);
+
+  useEffect(() => {
+    localStorage.setItem('blackmind_weekly_goals', JSON.stringify(weeklyGoals));
+  }, [weeklyGoals]);
 
   useEffect(() => {
     localStorage.setItem('blackmind_workspaces', JSON.stringify(workspaces));
@@ -565,6 +599,23 @@ export const CourseProvider = ({ children }: { children?: React.ReactNode }) => 
     setInvitations(prev => [...prev, newInvitation]);
   }, []);
 
+  // Called whenever a lesson is viewed in LearnPage — the only real signal
+  // of study activity this client-only app has, so it doubles as the source
+  // for the daily activity chart, hours estimate, and streak.
+  const logLessonActivity = useCallback(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    setStudyLog(prev => ({ ...prev, [today]: (prev[today] || 0) + 1 }));
+  }, []);
+
+  const addWeeklyGoal = useCallback((title: string, target: number, unit: 'lessons' | 'minutes') => {
+    const goal: WeeklyGoal = { id: Math.random().toString(36).substr(2, 9), title, target, unit };
+    setWeeklyGoals(prev => [...prev, goal]);
+  }, []);
+
+  const removeWeeklyGoal = useCallback((id: string) => {
+    setWeeklyGoals(prev => prev.filter(g => g.id !== id));
+  }, []);
+
   const getWorkspaceMembers = useCallback((workspaceId: string) => {
     const ws = workspaces.find(w => w.id === workspaceId);
     return ws ? ws.members : [];
@@ -584,6 +635,11 @@ export const CourseProvider = ({ children }: { children?: React.ReactNode }) => 
       preferences,
       updatePreferences,
       resetPreferences,
+      studyLog,
+      weeklyGoals,
+      logLessonActivity,
+      addWeeklyGoal,
+      removeWeeklyGoal,
       t,
       setActiveCourse, 
       addCourse, 
