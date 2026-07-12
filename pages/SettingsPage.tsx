@@ -1,17 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { 
-  User, 
-  Bell, 
-  Shield, 
-  Palette, 
-  Database, 
-  HelpCircle, 
-  LogOut, 
-  FileText, 
-  Link as LinkIcon, 
-  Check, 
-  Plus,
-  Layers,
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  User,
+  Bell,
+  Shield,
+  Palette,
+  Database,
+  HelpCircle,
+  LogOut,
+  Link as LinkIcon,
+  Check,
   ChevronRight,
   Globe,
   Mail,
@@ -23,11 +21,8 @@ import {
   Sun,
   Type as TypeIcon,
   Monitor,
-  MessageSquare,
-  Upload,
   Camera,
   X,
-  CreditCard,
   Cloud,
   Zap,
   Accessibility,
@@ -37,17 +32,22 @@ import {
   Volume2,
   Target,
   RefreshCw,
-  ExternalLink,
-  Settings
+  Settings,
+  Unlink,
+  FolderOpen,
+  Laptop,
+  AlertCircle,
 } from 'lucide-react';
 import { useCourseContext } from '../store/useCourseStore';
 import { useLanguage } from '../contexts/LanguageContext';
+import { isGoogleConfigured, isGoogleConnected as checkGoogleConnected, getGoogleEmail, connectGoogle, disconnectGoogle } from '../services/googleAuth';
+import HelpModal from '../components/Shared/HelpModal';
 
 type SettingsTab = 'general' | 'notifications' | 'security' | 'integrations' | 'appearance' | 'accessibility' | 'data';
 type ThemeMode = 'oled' | 'dark' | 'light';
 
 const SettingsItem = ({ icon: Icon, label, description, right, onClick, dangerous }: any) => (
-  <div 
+  <div
     onClick={onClick}
     className={`flex items-center justify-between p-4 hover:bg-gemini-bg/50 rounded-2xl transition-all cursor-pointer group active:scale-[0.99] ${dangerous ? 'hover:bg-red-500/5' : ''}`}
   >
@@ -65,7 +65,7 @@ const SettingsItem = ({ icon: Icon, label, description, right, onClick, dangerou
 );
 
 const Toggle = ({ active, onToggle }: { active: boolean, onToggle: () => void }) => (
-  <button 
+  <button
     onClick={onToggle}
     className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${active ? 'bg-gemini-accent' : 'bg-gemini-border'}`}
   >
@@ -73,20 +73,61 @@ const Toggle = ({ active, onToggle }: { active: boolean, onToggle: () => void })
   </button>
 );
 
+const ConfirmModal = ({ icon: Icon, title, desc, cancelLabel, confirmLabel, onCancel, onConfirm }: any) => (
+  <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300" onClick={onCancel}></div>
+    <div className="relative w-full max-w-md bg-gemini-surface border border-gemini-border rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="p-10 text-center space-y-6">
+        <div className="w-20 h-20 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-2 border border-red-500/20">
+          <Icon size={40} />
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-2xl font-bold font-outfit text-gemini-text">{title}</h3>
+          <p className="text-sm text-gemini-dim leading-relaxed">{desc}</p>
+        </div>
+        <div className="flex gap-3 pt-4">
+          <button onClick={onCancel} className="flex-1 px-6 py-4 bg-gemini-bg border border-gemini-border rounded-2xl text-[10px] font-bold uppercase tracking-widest text-gemini-text hover:bg-gemini-surface transition-all">
+            {cancelLabel}
+          </button>
+          <button onClick={onConfirm} className="flex-1 px-6 py-4 bg-red-500 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-600 shadow-lg active:scale-95 transition-all">
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 const SettingsPage: React.FC = () => {
-  const { currentUser, updateUserProfile, accessibility, updateAccessibility, resetAccessibility } = useCourseContext();
+  const { currentUser, updateUserProfile, accessibility, updateAccessibility, resetAccessibility, preferences, updatePreferences, resetPreferences, logout } = useCourseContext();
   const { language, setLanguage, t: tGlobal } = useLanguage();
   const t = tGlobal;
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [theme, setTheme] = useState<ThemeMode>(() => (localStorage.getItem('blackmind_theme') as ThemeMode) || 'dark');
-  const [isGoogleConnected, setIsGoogleConnected] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // General — inline username edit
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(currentUser?.name || '');
+
+  // Google Workspace integration
+  const [googleConnected, setGoogleConnected] = useState(checkGoogleConnected());
+  const [googleEmail, setGoogleEmail] = useState(getGoogleEmail());
+  const [isGoogleBusy, setIsGoogleBusy] = useState(false);
+  const [googleError, setGoogleError] = useState('');
+
+  // Data tab
+  const [isClearCacheConfirmOpen, setIsClearCacheConfirmOpen] = useState(false);
+  const [isDeleteAccountConfirmOpen, setIsDeleteAccountConfirmOpen] = useState(false);
+  const [dataActionSuccess, setDataActionSuccess] = useState<'export' | 'clear' | null>(null);
+
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   useEffect(() => {
     const html = document.documentElement;
     html.classList.remove('dark', 'oled-theme');
-    
+
     if (theme === 'oled') {
       html.classList.add('dark');
       html.style.setProperty('--gemini-bg', '#000000');
@@ -96,9 +137,18 @@ const SettingsPage: React.FC = () => {
     } else {
       html.style.removeProperty('--gemini-bg');
     }
-    
+
     localStorage.setItem('blackmind_theme', theme);
   }, [theme]);
+
+  const deviceLabel = useMemo(() => {
+    const ua = navigator.userAgent;
+    const browser = /Edg\//.test(ua) ? 'Edge' : /Chrome/.test(ua) ? 'Chrome' : /Firefox/.test(ua) ? 'Firefox' : /Safari/.test(ua) ? 'Safari' : 'Navigateur';
+    const os = /Windows/.test(ua) ? 'Windows' : /Mac OS/.test(ua) ? 'macOS' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Linux/.test(ua) ? 'Linux' : 'Appareil';
+    return `${browser} · ${os}`;
+  }, []);
+
+  if (!currentUser) return null;
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -111,18 +161,74 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleGoogleConnect = () => {
-    setIsSyncing(true);
-    setTimeout(() => {
-      setIsGoogleConnected(!isGoogleConnected);
-      setIsSyncing(false);
-    }, 1500);
+  const handleSaveName = () => {
+    const trimmed = nameInput.trim();
+    if (trimmed) updateUserProfile({ name: trimmed, initials: trimmed.slice(0, 2).toUpperCase() });
+    setIsEditingName(false);
   };
 
-  const handleManualSync = () => {
-    if (!isGoogleConnected) return;
-    setIsSyncing(true);
-    setTimeout(() => setIsSyncing(false), 2000);
+  const handleGoogleConnect = async () => {
+    if (googleConnected) {
+      disconnectGoogle();
+      setGoogleConnected(false);
+      setGoogleEmail(null);
+      return;
+    }
+    setGoogleError('');
+    setIsGoogleBusy(true);
+    try {
+      const { email } = await connectGoogle();
+      setGoogleConnected(true);
+      setGoogleEmail(email);
+    } catch (e: any) {
+      setGoogleError(e?.message === 'GOOGLE_CLIENT_ID not configured' ? t('settings.googleNotConfigured') : t('settings.googleConnectFailed'));
+    } finally {
+      setIsGoogleBusy(false);
+    }
+  };
+
+  const handleExportData = () => {
+    const data = {
+      user: currentUser,
+      courses: JSON.parse(localStorage.getItem('blackmind_courses') || '[]'),
+      workspaces: JSON.parse(localStorage.getItem('blackmind_workspaces') || '[]'),
+      accessibility,
+      preferences,
+      exportedAt: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `blackmind-data-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    setDataActionSuccess('export');
+    setTimeout(() => setDataActionSuccess(null), 2500);
+  };
+
+  const handleClearCache = () => {
+    resetAccessibility();
+    resetPreferences();
+    localStorage.removeItem('blackmind_theme');
+    setTheme('dark');
+    setIsClearCacheConfirmOpen(false);
+    setDataActionSuccess('clear');
+    setTimeout(() => setDataActionSuccess(null), 2500);
+  };
+
+  const handleDeleteAccount = () => {
+    Object.keys(localStorage).filter((k) => k.startsWith('blackmind_')).forEach((k) => localStorage.removeItem(k));
+    setIsDeleteAccountConfirmOpen(false);
+    logout();
+    navigate('/login');
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
   const tabs: { id: SettingsTab, label: string, icon: any }[] = [
@@ -172,28 +278,52 @@ const SettingsPage: React.FC = () => {
             <section className="space-y-4">
               <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-gemini-dim px-2">{t('settings.accountInfo')}</h3>
               <div className="glass-card rounded-[2.5rem] overflow-hidden divide-y divide-gemini-border border-gemini-border shadow-2xl bg-gemini-surface/30">
-                <SettingsItem icon={User} label={t('settings.username')} description={currentUser.name} right={<button className="text-[10px] font-bold text-gemini-accent uppercase tracking-widest hover:underline">{t('common.edit')}</button>} />
+                <SettingsItem
+                  icon={User}
+                  label={t('settings.username')}
+                  description={isEditingName ? '' : currentUser.name}
+                  right={
+                    isEditingName ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          autoFocus
+                          value={nameInput}
+                          onChange={(e) => setNameInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveName();
+                            if (e.key === 'Escape') { setNameInput(currentUser.name); setIsEditingName(false); }
+                          }}
+                          className="bg-gemini-bg border border-gemini-border rounded-lg px-3 py-1.5 text-sm text-gemini-text outline-none focus:border-gemini-accent w-36"
+                        />
+                        <button onClick={handleSaveName} className="p-1.5 text-gemini-accent hover:scale-110 transition-all"><Check size={16} /></button>
+                        <button onClick={() => { setNameInput(currentUser.name); setIsEditingName(false); }} className="p-1.5 text-gemini-dim hover:text-red-500 transition-all"><X size={16} /></button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setIsEditingName(true)} className="text-[10px] font-bold text-gemini-accent uppercase tracking-widest hover:underline">{t('common.edit')}</button>
+                    )
+                  }
+                />
                 <SettingsItem icon={Mail} label={t('settings.email')} description={currentUser.email} right={<div className="flex items-center gap-1.5 text-green-500 text-[10px] font-bold"><Check size={12}/> {t('settings.verified')}</div>} />
-                <SettingsItem 
-                  icon={Globe} 
-                  label={t('settings.language')} 
-                  description={language === 'fr' ? 'Français' : 'English'} 
+                <SettingsItem
+                  icon={Globe}
+                  label={t('settings.language')}
+                  description={language === 'fr' ? 'Français' : 'English'}
                   right={
                     <div className="flex items-center bg-gemini-bg rounded-lg p-1 border border-gemini-border">
-                      <button 
-                        onClick={() => setLanguage('fr')} 
+                      <button
+                        onClick={() => setLanguage('fr')}
                         className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${language === 'fr' ? 'bg-gemini-accent text-gemini-bg shadow-sm' : 'text-gemini-dim hover:text-gemini-accent'}`}
                       >
                         FR
                       </button>
-                      <button 
-                        onClick={() => setLanguage('en')} 
+                      <button
+                        onClick={() => setLanguage('en')}
                         className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${language === 'en' ? 'bg-gemini-accent text-gemini-bg shadow-sm' : 'text-gemini-dim hover:text-gemini-accent'}`}
                       >
                         EN
                       </button>
                     </div>
-                  } 
+                  }
                 />
               </div>
             </section>
@@ -214,7 +344,7 @@ const SettingsPage: React.FC = () => {
             </div>
 
             <section className="space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-gemini-dim px-2">Google Ecosystem</h3>
+              <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-gemini-dim px-2">Google Workspace</h3>
               <div className="glass-card rounded-[2.5rem] p-6 border border-gemini-border shadow-2xl bg-gemini-surface/30">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                   <div className="flex items-center gap-4">
@@ -228,53 +358,41 @@ const SettingsPage: React.FC = () => {
                     </div>
                     <div>
                       <h4 className="font-bold text-lg text-gemini-accent">Google Docs & Drive</h4>
-                      <p className="text-sm text-gemini-dim leading-relaxed">
-                        Exportez automatiquement vos cours structurés vers Google Docs et stockez vos ressources dans votre Drive personnel.
-                      </p>
+                      <p className="text-sm text-gemini-dim leading-relaxed">{t('settings.googleDesc')}</p>
                     </div>
                   </div>
-                  <button 
-                    onClick={handleGoogleConnect}
-                    disabled={isSyncing}
-                    className={`px-8 py-3 rounded-2xl font-bold text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 shadow-xl whitespace-nowrap ${isGoogleConnected ? 'bg-gemini-surface border border-gemini-border text-red-500' : 'bg-gemini-accent text-gemini-bg hover:scale-105 active:scale-95'}`}
-                  >
-                    {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : isGoogleConnected ? 'Déconnecter' : 'Connecter Google'}
-                  </button>
+                  {!isGoogleConfigured() ? (
+                    <div className="px-5 py-3 bg-gemini-bg border border-gemini-border rounded-xl text-[10px] font-bold uppercase tracking-widest text-gemini-dim whitespace-nowrap text-center">
+                      {t('settings.googleNotConfigured')}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleGoogleConnect}
+                      disabled={isGoogleBusy}
+                      className={`px-8 py-3 rounded-2xl font-bold text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 shadow-xl whitespace-nowrap ${googleConnected ? 'bg-gemini-surface border border-gemini-border text-red-500' : 'bg-gemini-accent text-gemini-bg hover:scale-105 active:scale-95'}`}
+                    >
+                      {isGoogleBusy ? <RefreshCw size={14} className="animate-spin" /> : googleConnected ? <Unlink size={14} /> : null}
+                      {isGoogleBusy ? t('settings.connecting') : googleConnected ? t('settings.disconnect') : t('settings.connectGoogle')}
+                    </button>
+                  )}
                 </div>
 
-                {isGoogleConnected && (
+                {googleError && (
+                  <p className="mt-4 text-xs text-red-500 flex items-center gap-2"><AlertCircle size={14} /> {googleError}</p>
+                )}
+
+                {googleConnected && (
                   <div className="mt-8 pt-8 border-t border-gemini-border animate-in slide-in-from-top-2 duration-300">
-                    <div className="flex flex-col md:flex-row gap-6 md:items-center justify-between">
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 text-green-500 rounded-full w-fit border border-green-500/20">
-                          <Check size={12} />
-                          <span className="text-[9px] font-bold uppercase tracking-widest">Connecté à {currentUser.email}</span>
-                        </div>
-                        <div className="space-y-2">
-                           <div className="flex items-center gap-3">
-                             <Toggle active={true} onToggle={() => {}} />
-                             <span className="text-sm text-gemini-text font-medium">Export automatique vers Google Docs</span>
-                           </div>
-                           <div className="flex items-center gap-3">
-                             <Toggle active={false} onToggle={() => {}} />
-                             <span className="text-sm text-gemini-text font-medium">Synchronisation des images vers Google Drive</span>
-                           </div>
-                        </div>
+                    <div className="flex flex-col md:flex-row gap-4 md:items-center justify-between">
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 text-green-500 rounded-full w-fit border border-green-500/20">
+                        <Check size={12} />
+                        <span className="text-[9px] font-bold uppercase tracking-widest">{t('settings.connectedAs', { email: googleEmail || currentUser.email || '' })}</span>
                       </div>
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={handleManualSync}
-                          disabled={isSyncing}
-                          className="flex items-center gap-2 px-6 py-3 bg-gemini-bg border border-gemini-border rounded-xl text-[10px] font-bold uppercase tracking-widest text-gemini-dim hover:text-gemini-accent transition-all"
-                        >
-                          {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                          Sync Manuelle
-                        </button>
-                        <button className="p-3 bg-gemini-bg border border-gemini-border rounded-xl text-gemini-dim hover:text-gemini-accent transition-all">
-                          <ExternalLink size={18} />
-                        </button>
-                      </div>
+                      <a href="https://drive.google.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-6 py-3 bg-gemini-bg border border-gemini-border rounded-xl text-[10px] font-bold uppercase tracking-widest text-gemini-dim hover:text-gemini-accent transition-all w-fit">
+                        <FolderOpen size={14} /> {t('settings.openDrive')}
+                      </a>
                     </div>
+                    <p className="mt-4 text-xs text-gemini-dim leading-relaxed">{t('settings.googleScopeNote')}</p>
                   </div>
                 )}
               </div>
@@ -299,42 +417,42 @@ const SettingsPage: React.FC = () => {
             <section className="space-y-4">
               <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-gemini-dim px-2">{t('profiles')}</h3>
               <div className="glass-card rounded-[2.5rem] overflow-hidden divide-y divide-gemini-border border-gemini-border shadow-2xl bg-gemini-surface/30">
-                <SettingsItem 
-                  icon={TypeIcon} 
-                  label={t('dyslexia')} 
-                  description={t('dyslexiaDesc')} 
-                  right={<Toggle active={accessibility.dyslexiaMode} onToggle={() => updateAccessibility({ dyslexiaMode: !accessibility.dyslexiaMode })} />} 
+                <SettingsItem
+                  icon={TypeIcon}
+                  label={t('dyslexia')}
+                  description={t('dyslexiaDesc')}
+                  right={<Toggle active={accessibility.dyslexiaMode} onToggle={() => updateAccessibility({ dyslexiaMode: !accessibility.dyslexiaMode })} />}
                 />
-                <SettingsItem 
-                  icon={Eye} 
-                  label={t('contrast')} 
-                  description={t('contrastDesc')} 
-                  right={<Toggle active={accessibility.highContrast} onToggle={() => updateAccessibility({ highContrast: !accessibility.highContrast })} />} 
+                <SettingsItem
+                  icon={Eye}
+                  label={t('contrast')}
+                  description={t('contrastDesc')}
+                  right={<Toggle active={accessibility.highContrast} onToggle={() => updateAccessibility({ highContrast: !accessibility.highContrast })} />}
                 />
-                <SettingsItem 
-                  icon={LayoutTemplate} 
-                  label={t('falc')} 
-                  description={t('falcDesc')} 
-                  right={<Toggle active={accessibility.simplifiedReading} onToggle={() => updateAccessibility({ simplifiedReading: !accessibility.simplifiedReading })} />} 
+                <SettingsItem
+                  icon={LayoutTemplate}
+                  label={t('falc')}
+                  description={t('falcDesc')}
+                  right={<Toggle active={accessibility.simplifiedReading} onToggle={() => updateAccessibility({ simplifiedReading: !accessibility.simplifiedReading })} />}
                 />
-                <SettingsItem 
-                  icon={Volume2} 
-                  label={t('audioReading')} 
-                  description={t('audioReadingDesc')} 
-                  right={<Toggle active={accessibility.audioReading} onToggle={() => updateAccessibility({ audioReading: !accessibility.audioReading })} />} 
+                <SettingsItem
+                  icon={Volume2}
+                  label={t('audioReading')}
+                  description={t('audioReadingDesc')}
+                  right={<Toggle active={accessibility.audioReading} onToggle={() => updateAccessibility({ audioReading: !accessibility.audioReading })} />}
                 />
-                <SettingsItem 
-                  icon={Target} 
-                  label={t('adhd')} 
-                  description={t('adhdDesc')} 
-                  right={<Toggle active={accessibility.adhdFocusMode} onToggle={() => updateAccessibility({ adhdFocusMode: !accessibility.adhdFocusMode })} />} 
+                <SettingsItem
+                  icon={Target}
+                  label={t('adhd')}
+                  description={t('adhdDesc')}
+                  right={<Toggle active={accessibility.adhdFocusMode} onToggle={() => updateAccessibility({ adhdFocusMode: !accessibility.adhdFocusMode })} />}
                 />
-                <SettingsItem 
-                  icon={Palette} 
-                  label={t('daltonism')} 
-                  description={t('daltonismDesc')} 
+                <SettingsItem
+                  icon={Palette}
+                  label={t('daltonism')}
+                  description={t('daltonismDesc')}
                   right={
-                    <select 
+                    <select
                       value={accessibility.colorBlindMode}
                       onChange={(e) => updateAccessibility({ colorBlindMode: e.target.value as any })}
                       className="bg-gemini-bg border border-gemini-border rounded-lg text-[10px] font-bold uppercase py-1 px-2 text-gemini-text outline-none focus:border-gemini-accent"
@@ -344,13 +462,13 @@ const SettingsPage: React.FC = () => {
                       <option value="deuteranopia">{tGlobal('settings.accessibility.deuteranopia')}</option>
                       <option value="tritanopia">{tGlobal('settings.accessibility.tritanopia')}</option>
                     </select>
-                  } 
+                  }
                 />
-                <SettingsItem 
-                  icon={Keyboard} 
-                  label={t('keyboard')} 
-                  description={t('keyboardDesc')} 
-                  right={<Toggle active={accessibility.keyboardNav} onToggle={() => updateAccessibility({ keyboardNav: !accessibility.keyboardNav })} />} 
+                <SettingsItem
+                  icon={Keyboard}
+                  label={t('keyboard')}
+                  description={t('keyboardDesc')}
+                  right={<Toggle active={accessibility.keyboardNav} onToggle={() => updateAccessibility({ keyboardNav: !accessibility.keyboardNav })} />}
                 />
               </div>
             </section>
@@ -367,10 +485,10 @@ const SettingsPage: React.FC = () => {
                       <p className="font-bold text-sm text-gemini-text">{t('textSize')}</p>
                       <div className="flex items-center gap-4 mt-2">
                         <span className="text-xs text-gemini-dim">A</span>
-                        <input 
-                          type="range" 
-                          min="0.8" 
-                          max="1.5" 
+                        <input
+                          type="range"
+                          min="0.8"
+                          max="1.5"
                           step="0.1"
                           value={accessibility.textSize}
                           onChange={(e) => updateAccessibility({ textSize: parseFloat(e.target.value) })}
@@ -390,10 +508,10 @@ const SettingsPage: React.FC = () => {
                     <div className="flex-1">
                       <p className="font-bold text-sm text-gemini-text">{t('spacing')}</p>
                       <div className="flex items-center gap-4 mt-2">
-                        <input 
-                          type="range" 
-                          min="1" 
-                          max="2" 
+                        <input
+                          type="range"
+                          min="1"
+                          max="2"
                           step="0.1"
                           value={accessibility.lineHeight}
                           onChange={(e) => updateAccessibility({ lineHeight: parseFloat(e.target.value) })}
@@ -404,24 +522,24 @@ const SettingsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <SettingsItem 
-                  icon={Zap} 
-                  label={t('motion')} 
-                  description={t('motionDesc')} 
-                  right={<Toggle active={accessibility.reduceMotion} onToggle={() => updateAccessibility({ reduceMotion: !accessibility.reduceMotion })} />} 
+                <SettingsItem
+                  icon={Zap}
+                  label={t('motion')}
+                  description={t('motionDesc')}
+                  right={<Toggle active={accessibility.reduceMotion} onToggle={() => updateAccessibility({ reduceMotion: !accessibility.reduceMotion })} />}
                 />
-                
-                <SettingsItem 
-                  icon={LinkIcon} 
-                  label={t('links')} 
-                  description={t('linksDesc')} 
-                  right={<Toggle active={accessibility.highlightLinks} onToggle={() => updateAccessibility({ highlightLinks: !accessibility.highlightLinks })} />} 
+
+                <SettingsItem
+                  icon={LinkIcon}
+                  label={t('links')}
+                  description={t('linksDesc')}
+                  right={<Toggle active={accessibility.highlightLinks} onToggle={() => updateAccessibility({ highlightLinks: !accessibility.highlightLinks })} />}
                 />
               </div>
             </section>
 
             <div className="flex justify-center">
-              <button 
+              <button
                 onClick={resetAccessibility}
                 className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim hover:text-gemini-accent transition-colors"
               >
@@ -439,9 +557,24 @@ const SettingsPage: React.FC = () => {
             <section className="space-y-4">
               <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-gemini-dim px-2">{t('settings.tabs.notifications')}</h3>
               <div className="glass-card rounded-[2.5rem] overflow-hidden divide-y divide-gemini-border border-gemini-border shadow-2xl bg-gemini-surface/30">
-                <SettingsItem icon={Mail} label={t('settings.notifications.email')} description={t('settings.notifications.emailDesc')} right={<Toggle active={true} onToggle={() => {}} />} />
-                <SettingsItem icon={Smartphone} label={t('settings.notifications.push')} description={t('settings.notifications.pushDesc')} right={<Toggle active={false} onToggle={() => {}} />} />
-                <SettingsItem icon={Zap} label={t('settings.notifications.ai')} description={t('settings.notifications.aiDesc')} right={<Toggle active={true} onToggle={() => {}} />} />
+                <SettingsItem
+                  icon={Mail}
+                  label={t('settings.notifications.email')}
+                  description={t('settings.notifications.emailDesc')}
+                  right={<Toggle active={preferences.notifications.email} onToggle={() => updatePreferences({ notifications: { ...preferences.notifications, email: !preferences.notifications.email } })} />}
+                />
+                <SettingsItem
+                  icon={Smartphone}
+                  label={t('settings.notifications.push')}
+                  description={t('settings.notifications.pushDesc')}
+                  right={<Toggle active={preferences.notifications.push} onToggle={() => updatePreferences({ notifications: { ...preferences.notifications, push: !preferences.notifications.push } })} />}
+                />
+                <SettingsItem
+                  icon={Zap}
+                  label={t('settings.notifications.ai')}
+                  description={t('settings.notifications.aiDesc')}
+                  right={<Toggle active={preferences.notifications.aiUpdates} onToggle={() => updatePreferences({ notifications: { ...preferences.notifications, aiUpdates: !preferences.notifications.aiUpdates } })} />}
+                />
               </div>
             </section>
           </div>
@@ -457,7 +590,7 @@ const SettingsPage: React.FC = () => {
                   { id: 'dark', label: 'Gemini Dark', icon: Moon, color: 'bg-[#121212] border-white/10 text-white' },
                   { id: 'oled', label: 'OLED Black', icon: Monitor, color: 'bg-black border-white/20 text-white' }
                 ].map((m) => (
-                  <button 
+                  <button
                     key={m.id}
                     onClick={() => setTheme(m.id as ThemeMode)}
                     className={`p-6 rounded-3xl border-2 flex flex-col items-center gap-4 transition-all ${theme === m.id ? 'border-gemini-accent scale-105 shadow-2xl bg-gemini-surface' : 'border-gemini-border opacity-50 hover:opacity-100 hover:bg-gemini-surface/50'}`}
@@ -475,8 +608,70 @@ const SettingsPage: React.FC = () => {
             <section className="space-y-4">
               <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-gemini-dim px-2">{t('settings.typography')}</h3>
               <div className="glass-card rounded-[2.5rem] overflow-hidden divide-y divide-gemini-border border-gemini-border shadow-2xl bg-gemini-surface/30">
-                <SettingsItem icon={TypeIcon} label={t('settings.font')} description={t('settings.appearance.fontDesc')} right={<span className="text-[10px] font-bold text-gemini-dim">Standard</span>} />
-                <SettingsItem icon={Zap} label={t('settings.aiAssistant')} description={t('settings.appearance.assistantDesc')} right={<Toggle active={true} onToggle={() => {}} />} />
+                <SettingsItem
+                  icon={TypeIcon}
+                  label={t('settings.font')}
+                  description={t('settings.appearance.fontDesc')}
+                  right={
+                    <select
+                      value={accessibility.fontFamily}
+                      onChange={(e) => updateAccessibility({ fontFamily: e.target.value as any })}
+                      className="bg-gemini-bg border border-gemini-border rounded-lg text-[10px] font-bold uppercase py-1 px-2 text-gemini-text outline-none focus:border-gemini-accent"
+                    >
+                      <option value="default">{t('settings.appearance.fontDefault')}</option>
+                      <option value="serif">{t('settings.appearance.fontSerif')}</option>
+                      <option value="monospace">{t('settings.appearance.fontMono')}</option>
+                      <option value="dyslexic">{t('settings.appearance.fontDyslexic')}</option>
+                    </select>
+                  }
+                />
+                <SettingsItem
+                  icon={Zap}
+                  label={t('settings.aiAssistant')}
+                  description={t('settings.appearance.assistantDesc')}
+                  right={<Toggle active={preferences.showAiAssistant} onToggle={() => updatePreferences({ showAiAssistant: !preferences.showAiAssistant })} />}
+                />
+              </div>
+            </section>
+          </div>
+        );
+
+      case 'security':
+        return (
+          <div className="space-y-10 animate-in fade-in duration-500">
+            <section className="space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-gemini-dim px-2">{t('settings.security.sessionTitle')}</h3>
+              <div className="glass-card rounded-[2.5rem] overflow-hidden divide-y divide-gemini-border border-gemini-border shadow-2xl bg-gemini-surface/30">
+                <SettingsItem
+                  icon={Laptop}
+                  label={t('settings.security.thisDevice')}
+                  description={deviceLabel}
+                  right={<div className="flex items-center gap-1.5 text-green-500 text-[10px] font-bold"><Check size={12} /> {t('settings.security.active')}</div>}
+                />
+                <SettingsItem
+                  icon={LogOut}
+                  label={t('settings.logout')}
+                  description={t('settings.security.logoutDesc')}
+                  dangerous
+                  onClick={handleLogout}
+                  right={<ChevronRight size={16} className="text-red-500/50" />}
+                />
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-gemini-dim px-2">{t('settings.security.connectedAppsTitle')}</h3>
+              <div className="glass-card rounded-[2.5rem] overflow-hidden divide-y divide-gemini-border border-gemini-border shadow-2xl bg-gemini-surface/30">
+                {googleConnected ? (
+                  <SettingsItem
+                    icon={Cloud}
+                    label="Google Drive & Docs"
+                    description={t('settings.connectedAs', { email: googleEmail || currentUser.email || '' })}
+                    right={<button onClick={handleGoogleConnect} className="text-[10px] font-bold text-red-500 uppercase tracking-widest hover:underline">{t('settings.revoke')}</button>}
+                  />
+                ) : (
+                  <div className="p-6 text-center text-sm text-gemini-dim">{t('settings.security.noConnectedApps')}</div>
+                )}
               </div>
             </section>
           </div>
@@ -488,9 +683,28 @@ const SettingsPage: React.FC = () => {
             <section className="space-y-4">
               <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-gemini-dim px-2">{t('settings.storage')}</h3>
               <div className="glass-card rounded-[2.5rem] overflow-hidden divide-y divide-gemini-border border-gemini-border shadow-2xl bg-gemini-surface/30">
-                <SettingsItem icon={Download} label={t('settings.exportData')} description={t('settings.exportDataDesc')} right={<button className="p-2 text-gemini-dim hover:text-gemini-accent transition-colors"><Download size={18}/></button>} />
-                <SettingsItem icon={Trash2} label={t('settings.clearCache')} description={t('settings.clearCacheDesc')} right={<button className="text-[10px] font-bold text-gemini-dim uppercase tracking-widest hover:text-gemini-accent">{t('settings.clean')}</button>} />
-                <SettingsItem icon={LogOut} label={t('settings.deleteAccount')} description={t('settings.deleteAccountDesc')} dangerous={true} right={<ChevronRight size={16} />} />
+                <SettingsItem
+                  icon={Download}
+                  label={t('settings.exportData')}
+                  description={t('settings.exportDataDesc')}
+                  onClick={handleExportData}
+                  right={dataActionSuccess === 'export' ? <Check size={18} className="text-green-500" /> : <button className="p-2 text-gemini-dim hover:text-gemini-accent transition-colors"><Download size={18} /></button>}
+                />
+                <SettingsItem
+                  icon={Trash2}
+                  label={t('settings.clearCache')}
+                  description={t('settings.clearCacheDesc')}
+                  onClick={() => setIsClearCacheConfirmOpen(true)}
+                  right={dataActionSuccess === 'clear' ? <Check size={18} className="text-green-500" /> : <button className="text-[10px] font-bold text-gemini-dim uppercase tracking-widest hover:text-gemini-accent">{t('settings.clean')}</button>}
+                />
+                <SettingsItem
+                  icon={LogOut}
+                  label={t('settings.deleteAccount')}
+                  description={t('settings.deleteAccountDesc')}
+                  dangerous={true}
+                  onClick={() => setIsDeleteAccountConfirmOpen(true)}
+                  right={<ChevronRight size={16} />}
+                />
               </div>
             </section>
           </div>
@@ -514,13 +728,13 @@ const SettingsPage: React.FC = () => {
 
           <div className="relative md:static md:w-full"><div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-gemini-bg to-transparent pointer-events-none md:hidden z-10" /><nav className="flex md:flex-col gap-2 overflow-x-auto no-scrollbar pb-2 sticky top-24 snap-x snap-mandatory pr-8">
             {tabs.map((tab) => (
-              <button 
+              <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 style={{ scrollSnapAlign: "start" }}
                 className={`flex items-center gap-3 px-6 py-4 rounded-2xl text-[11px] font-bold uppercase tracking-widest transition-all whitespace-nowrap group ${
-                  activeTab === tab.id 
-                  ? 'bg-gemini-accent text-gemini-bg shadow-2xl scale-105' 
+                  activeTab === tab.id
+                  ? 'bg-gemini-accent text-gemini-bg shadow-2xl scale-105'
                   : 'text-gemini-dim hover:text-gemini-accent hover:bg-gemini-surface border border-transparent hover:border-gemini-border'
                 }`}
               >
@@ -529,7 +743,7 @@ const SettingsPage: React.FC = () => {
               </button>
             ))}
             <div className="hidden md:block pt-6 mt-6 border-t border-gemini-border">
-              <button className="w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-[11px] font-bold uppercase tracking-widest text-gemini-dim hover:text-red-500 hover:bg-red-500/5 transition-all">
+              <button onClick={handleLogout} className="w-full flex items-center gap-3 px-6 py-4 rounded-2xl text-[11px] font-bold uppercase tracking-widest text-gemini-dim hover:text-red-500 hover:bg-red-500/5 transition-all">
                 <LogOut size={18} />
                 <span>{t('settings.logout')}</span>
               </button>
@@ -542,7 +756,7 @@ const SettingsPage: React.FC = () => {
             <h1 className="text-3xl font-bold font-outfit tracking-tight capitalize text-gemini-accent">{t(`settings.tabs.${activeTab}`)}</h1>
           </header>
           {renderContent()}
-          
+
           <div className="mt-12 p-8 rounded-[3rem] bg-gemini-surface/30 border border-gemini-border flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl backdrop-blur-sm">
             <div className="flex items-center gap-5">
               <div className="w-14 h-14 rounded-2xl bg-gemini-bg border border-gemini-border flex items-center justify-center text-gemini-dim shadow-lg">
@@ -553,12 +767,38 @@ const SettingsPage: React.FC = () => {
                 <p className="text-xs text-gemini-dim mt-1">{t('settings.helpText')}</p>
               </div>
             </div>
-            <button className="px-8 py-4 bg-gemini-surface hover:bg-gemini-bg border border-gemini-border rounded-2xl text-[10px] font-bold uppercase tracking-widest text-gemini-dim hover:text-gemini-accent transition-all shadow-xl hover:scale-105 active:scale-95">
+            <button onClick={() => setIsHelpOpen(true)} className="px-8 py-4 bg-gemini-surface hover:bg-gemini-bg border border-gemini-border rounded-2xl text-[10px] font-bold uppercase tracking-widest text-gemini-dim hover:text-gemini-accent transition-all shadow-xl hover:scale-105 active:scale-95">
               {t('settings.docs')}
             </button>
           </div>
         </div>
       </div>
+
+      <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
+
+      {isClearCacheConfirmOpen && (
+        <ConfirmModal
+          icon={Trash2}
+          title={t('settings.clearCacheConfirmTitle')}
+          desc={t('settings.clearCacheConfirmDesc')}
+          cancelLabel={t('common.cancel')}
+          confirmLabel={t('settings.clean')}
+          onCancel={() => setIsClearCacheConfirmOpen(false)}
+          onConfirm={handleClearCache}
+        />
+      )}
+
+      {isDeleteAccountConfirmOpen && (
+        <ConfirmModal
+          icon={AlertCircle}
+          title={t('settings.deleteAccountConfirmTitle')}
+          desc={t('settings.deleteAccountConfirmDesc')}
+          cancelLabel={t('common.cancel')}
+          confirmLabel={t('settings.deleteAccount')}
+          onCancel={() => setIsDeleteAccountConfirmOpen(false)}
+          onConfirm={handleDeleteAccount}
+        />
+      )}
     </div>
   );
 };

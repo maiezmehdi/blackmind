@@ -13,6 +13,15 @@ export interface UserProfile {
   subscription: SubscriptionTier;
 }
 
+export interface AppPreferences {
+  notifications: {
+    email: boolean;
+    push: boolean;
+    aiUpdates: boolean;
+  };
+  showAiAssistant: boolean; // floating help button on every page
+}
+
 export interface AccessibilitySettings {
   // Profils Rapides
   dyslexiaMode: boolean;

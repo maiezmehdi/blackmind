@@ -219,7 +219,10 @@ export const exportCoursePdf = async (course: Course): Promise<void> => {
 /* DOCX — styled document with the docx library                       */
 /* ================================================================== */
 
-export const exportCourseDocx = async (course: Course): Promise<void> => {
+// Builds the DOCX as a Blob without triggering a browser download — reused
+// both by exportCourseDocx (local download) and the Google Drive upload path
+// (Drive auto-converts an uploaded .docx into a native Google Doc).
+export const buildCourseDocxBlob = async (course: Course): Promise<Blob> => {
   const docx = await import('docx');
   const {
     Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle,
@@ -341,7 +344,11 @@ export const exportCourseDocx = async (course: Course): Promise<void> => {
     }],
   });
 
-  const blob = await Packer.toBlob(doc);
+  return Packer.toBlob(doc);
+};
+
+export const exportCourseDocx = async (course: Course): Promise<void> => {
+  const blob = await buildCourseDocxBlob(course);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

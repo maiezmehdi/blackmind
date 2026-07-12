@@ -99,6 +99,8 @@ import { generateCourseStructure, editCourseStructure, generateStorytellingStruc
 import { exportCoursePdf, exportCourseDocx } from '../services/exportService';
 import { makeGradientCover } from '../services/coverImage';
 import { downloadMedia, mediaFilename } from '../services/download';
+import { isGoogleConfigured, isGoogleConnected, connectGoogle, getAccessToken } from '../services/googleAuth';
+import { uploadCourseAsGoogleDoc } from '../services/googleDrive';
 import { Course, Module, Lesson, ContentBlock, BlockType, UserProfile, WorkspaceMember } from '../types';
 import { useCourseContext } from '../store/useCourseStore';
 import ArModelBlock from '../components/ArModelBlock';
@@ -274,10 +276,11 @@ const CreatePage: React.FC<CreatePageProps> = () => {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
-  const [exportingFormat, setExportingFormat] = useState<'pdf' | 'docx' | null>(null);
+  const [exportingFormat, setExportingFormat] = useState<'pdf' | 'docx' | 'gdoc' | null>(null);
   const [isSellModalOpen, setIsSellModalOpen] = useState(false);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
-  const [exportedFormat, setExportedFormat] = useState<'pdf' | 'docx' | null>(null);
+  const [exportedFormat, setExportedFormat] = useState<'pdf' | 'docx' | 'gdoc' | null>(null);
+  const [exportError, setExportError] = useState('');
   const [sellPrice, setSellPrice] = useState('');
   const [isSelling, setIsSelling] = useState(false);
   const [sellSuccess, setSellSuccess] = useState(false);
@@ -1246,20 +1249,34 @@ const CreatePage: React.FC<CreatePageProps> = () => {
     return colors[hash % colors.length];
   };
 
-  const handleExportCourse = async (format: 'pdf' | 'docx') => {
+  const handleExportCourse = async (format: 'pdf' | 'docx' | 'gdoc') => {
     if (!generatedCourse || exportingFormat) return;
     setIsDownloadModalOpen(true);
     setExportingFormat(format);
+    setExportError('');
     try {
-      if (format === 'pdf') await exportCoursePdf(generatedCourse);
-      else await exportCourseDocx(generatedCourse);
+      if (format === 'pdf') {
+        await exportCoursePdf(generatedCourse);
+      } else if (format === 'docx') {
+        await exportCourseDocx(generatedCourse);
+      } else {
+        if (!isGoogleConfigured()) throw new Error('not_configured');
+        if (!isGoogleConnected()) await connectGoogle();
+        const token = await getAccessToken();
+        if (!token) throw new Error('no_token');
+        const { webViewLink } = await uploadCourseAsGoogleDoc(generatedCourse, token);
+        window.open(webViewLink, '_blank', 'noopener,noreferrer');
+      }
       setExportedFormat(format);
       setTimeout(() => {
         setExportedFormat(null);
         setIsDownloadModalOpen(false);
       }, 1500);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Export failed', e);
+      if (format === 'gdoc') {
+        setExportError(e?.message === 'not_configured' ? t('create.googleNotConfigured') : t('create.googleExportError'));
+      }
     } finally {
       setExportingFormat(null);
     }
@@ -1842,8 +1859,8 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                 <CheckCircle2 size={40} />
               </div>
               <div className="space-y-2">
-                <h3 className="text-2xl font-bold font-outfit text-gemini-text">{t('create.downloadedTitle')}</h3>
-                <p className="text-gemini-dim text-sm">{t('create.downloadedDesc', { format: exportedFormat.toUpperCase() })}</p>
+                <h3 className="text-2xl font-bold font-outfit text-gemini-text">{exportedFormat === 'gdoc' ? t('create.openedInDocsTitle') : t('create.downloadedTitle')}</h3>
+                <p className="text-gemini-dim text-sm">{exportedFormat === 'gdoc' ? t('create.openedInDocsDesc') : t('create.downloadedDesc', { format: exportedFormat.toUpperCase() })}</p>
               </div>
             </div>
           ) : (
@@ -1855,24 +1872,33 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                 <h3 className="text-2xl font-bold font-outfit text-gemini-text">Exporter le savoir</h3>
                 <p className="text-gemini-dim text-sm">{t('create.exportDesc')}</p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-3">
                 <button
                   onClick={() => handleExportCourse('pdf')}
                   disabled={!!exportingFormat}
-                  className="flex flex-col items-center gap-3 p-6 rounded-[2rem] border border-gemini-border hover:border-gemini-accent hover:bg-gemini-accent/5 transition-all group disabled:opacity-50"
+                  className="flex flex-col items-center gap-3 p-5 rounded-[2rem] border border-gemini-border hover:border-gemini-accent hover:bg-gemini-accent/5 transition-all group disabled:opacity-50"
                 >
-                  {exportingFormat === 'pdf' ? <Loader2 size={32} className="animate-spin text-gemini-accent" /> : <FileText size={32} className="text-gemini-dim group-hover:text-gemini-accent" />}
-                  <span className="font-black text-[10px] uppercase tracking-[0.2em] text-gemini-dim group-hover:text-gemini-accent">{exportingFormat === 'pdf' ? t('create.exporting') : 'Format PDF'}</span>
+                  {exportingFormat === 'pdf' ? <Loader2 size={28} className="animate-spin text-gemini-accent" /> : <FileText size={28} className="text-gemini-dim group-hover:text-gemini-accent" />}
+                  <span className="font-black text-[9px] uppercase tracking-[0.15em] text-gemini-dim group-hover:text-gemini-accent">{exportingFormat === 'pdf' ? t('create.exporting') : 'PDF'}</span>
                 </button>
                 <button
                   onClick={() => handleExportCourse('docx')}
                   disabled={!!exportingFormat}
-                  className="flex flex-col items-center gap-3 p-6 rounded-[2rem] border border-gemini-border hover:border-gemini-accent hover:bg-gemini-accent/5 transition-all group disabled:opacity-50"
+                  className="flex flex-col items-center gap-3 p-5 rounded-[2rem] border border-gemini-border hover:border-gemini-accent hover:bg-gemini-accent/5 transition-all group disabled:opacity-50"
                 >
-                  {exportingFormat === 'docx' ? <Loader2 size={32} className="animate-spin text-gemini-accent" /> : <Layout size={32} className="text-gemini-dim group-hover:text-gemini-accent" />}
-                  <span className="font-black text-[10px] uppercase tracking-[0.2em] text-gemini-dim group-hover:text-gemini-accent">{exportingFormat === 'docx' ? t('create.exporting') : 'Format DOCX'}</span>
+                  {exportingFormat === 'docx' ? <Loader2 size={28} className="animate-spin text-gemini-accent" /> : <Layout size={28} className="text-gemini-dim group-hover:text-gemini-accent" />}
+                  <span className="font-black text-[9px] uppercase tracking-[0.15em] text-gemini-dim group-hover:text-gemini-accent">{exportingFormat === 'docx' ? t('create.exporting') : 'DOCX'}</span>
+                </button>
+                <button
+                  onClick={() => handleExportCourse('gdoc')}
+                  disabled={!!exportingFormat}
+                  className="flex flex-col items-center gap-3 p-5 rounded-[2rem] border border-gemini-border hover:border-gemini-accent hover:bg-gemini-accent/5 transition-all group disabled:opacity-50"
+                >
+                  {exportingFormat === 'gdoc' ? <Loader2 size={28} className="animate-spin text-gemini-accent" /> : <Cloud size={28} className="text-gemini-dim group-hover:text-gemini-accent" />}
+                  <span className="font-black text-[9px] uppercase tracking-[0.15em] text-gemini-dim group-hover:text-gemini-accent">{exportingFormat === 'gdoc' ? t('create.exporting') : 'Google Docs'}</span>
                 </button>
               </div>
+              {exportError && <p className="text-red-500 text-xs">{exportError}</p>}
             </div>
           )}
         </div>

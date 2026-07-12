@@ -105,6 +105,25 @@ body {
   text-decoration-thickness: 2px !important;
 }
 
+/* Navigation clavier : anneau de focus fortement visible */
+.mode-keyboard-nav *:focus-visible {
+  outline: 3px solid var(--gemini-accent) !important;
+  outline-offset: 2px !important;
+}
+
+/* Daltonisme : ajuste teinte/saturation/contraste pour mieux distinguer les couleurs de l'interface */
+.mode-colorblind-protanopia { filter: saturate(1.4) hue-rotate(-10deg) contrast(1.05); }
+.mode-colorblind-deuteranopia { filter: saturate(1.4) hue-rotate(10deg) contrast(1.05); }
+.mode-colorblind-tritanopia { filter: saturate(1.3) hue-rotate(25deg) contrast(1.05); }
+
+/* Police */
+body.font-serif { font-family: Georgia, 'Times New Roman', serif !important; }
+body.font-monospace { font-family: 'Courier New', Courier, monospace !important; }
+body.font-dyslexic {
+  font-family: 'Comic Sans MS', 'Chalkboard SE', 'Inter', sans-serif !important;
+  letter-spacing: 0.03em !important;
+}
+
 /* Custom styles for model-viewer */
 model-viewer {
   width: 100%;

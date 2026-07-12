@@ -25,6 +25,10 @@ export default defineConfig(({ mode }) => {
         // (YouTube Data API v3, free quota). Without it, the video block falls
         // back to a manual "search on YouTube" link.
         'process.env.YOUTUBE_API_KEY': JSON.stringify(env.YOUTUBE_API_KEY || ''),
+        // Optional — enables real Google Drive/Docs publishing (OAuth Client ID,
+        // not a secret: safe to inline client-side). Without it, the Google
+        // integration UI shows an honest "not configured" state.
+        'process.env.GOOGLE_CLIENT_ID': JSON.stringify(env.GOOGLE_CLIENT_ID || ''),
       },
       resolve: {
         alias: {

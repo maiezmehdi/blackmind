@@ -143,10 +143,24 @@
     "exportDataDesc": "Téléchargez une archive JSON.",
     "clearCache": "Vider le cache",
     "clearCacheDesc": "Supprime les données locales temporaires.",
+    "clearCacheConfirmTitle": "Vider le cache ?",
+    "clearCacheConfirmDesc": "Réinitialise l'accessibilité, l'apparence et le thème à leurs valeurs par défaut. Vos cours et espaces de travail ne sont pas touchés.",
     "clean": "Nettoyer",
     "deleteAccount": "Supprimer le compte",
     "deleteAccountDesc": "Cette action est irréversible.",
+    "deleteAccountConfirmTitle": "Supprimer votre compte ?",
+    "deleteAccountConfirmDesc": "Toutes vos données locales (profil, cours, espaces, préférences) seront définitivement effacées de cet appareil et vous serez déconnecté.",
     "logout": "Déconnexion",
+    "connectGoogle": "Connecter Google",
+    "connecting": "Connexion...",
+    "disconnect": "Déconnecter",
+    "revoke": "Révoquer",
+    "connectedAs": "Connecté à {email}",
+    "googleDesc": "Exportez vos cours vers Google Docs et enregistrez vos ressources dans votre Drive personnel.",
+    "googleNotConfigured": "Non configuré",
+    "googleConnectFailed": "La connexion à Google a échoué ou a été refusée. Réessaie.",
+    "googleScopeNote": "Blackmind ne peut voir que les fichiers qu'il crée lui-même dans ton Drive — jamais le reste de ton compte.",
+    "openDrive": "Ouvrir Google Drive",
     "needHelp": "Besoin d'aide ?",
     "helpText": "Consultez notre base de connaissances ou contactez le support.",
     "docs": "Documentation",
@@ -160,7 +174,11 @@
     },
     "appearance": {
       "fontDesc": "Outfit (Interface) / Inter (Body)",
-      "assistantDesc": "Affiche l'assistant sur toutes les pages."
+      "assistantDesc": "Affiche l'assistant sur toutes les pages.",
+      "fontDefault": "Standard",
+      "fontSerif": "Serif",
+      "fontMono": "Monospace",
+      "fontDyslexic": "Dyslexie"
     },
     "accessibility": {
       "title": "Profils d'accessibilité",
@@ -199,7 +217,28 @@
     "oled": "OLED",
     "integrationsTitle": "Services Cloud & Sync",
     "integrationsDesc": "Connectez Blackmind à vos outils favoris pour synchroniser vos contenus.",
-    "inDevelopment": "Section en développement"
+    "inDevelopment": "Section en développement",
+    "security": {
+      "sessionTitle": "Session",
+      "thisDevice": "Cet appareil",
+      "active": "Actif",
+      "logoutDesc": "Se déconnecter de cet appareil.",
+      "connectedAppsTitle": "Applications connectées",
+      "noConnectedApps": "Aucune application connectée pour le moment."
+    }
+  },
+  "help": {
+    "title": "Besoin d'aide ?",
+    "aiKeysQ": "Comment fonctionne la génération IA (Gemini, Qwen) ?",
+    "aiKeysA": "Blackmind essaie jusqu'à 3 clés Gemini dans l'ordre, puis bascule sur Qwen en dernier recours. Configure tes clés dans les variables d'environnement du projet — sans clé, la génération ne fonctionnera pas.",
+    "exportQ": "Comment exporter mon cours ?",
+    "exportA": "Depuis le menu « ... » d'un cours, choisis Télécharger le cours pour obtenir un PDF ou un DOCX, ou Ouvrir dans Google Docs si ton compte Google est connecté.",
+    "googleDriveQ": "Comment lier mon compte Google Drive ?",
+    "googleDriveA": "Dans Réglages → Intégrations, clique sur Connecter Google. Une fois connecté, tu peux ouvrir tes cours directement dans Google Docs et enregistrer des médias sur ton Drive.",
+    "accessibilityQ": "Où régler les options d'accessibilité ?",
+    "accessibilityA": "Dans Réglages → Accessibilité : police adaptée à la dyslexie, contraste élevé, lecture audio, taille du texte et bien plus, avec effet immédiat sur toute l'application.",
+    "workspacesQ": "Comment collaborer avec mon équipe ?",
+    "workspacesA": "Crée un espace de travail dans l'onglet Espaces, puis utilise Partager sur un espace ou Inviter des collaborateurs depuis le menu d'un cours."
   },
   "create": {
     "welcome": "Bienvenue sur Blackmind ! 👋 Je suis ravi de vous aider à concevoir votre prochain cours d'exception. Dites-moi tout sur votre sujet, je vous écoute avec enthousiasme !",
@@ -303,6 +342,10 @@
     "publishedToast": "Cours publié avec succès !",
     "downloadedTitle": "Téléchargement terminé !",
     "downloadedDesc": "Votre fichier {format} a bien été téléchargé.",
+    "openedInDocsTitle": "Ouvert dans Google Docs !",
+    "openedInDocsDesc": "Ton cours a été enregistré sur ton Drive et ouvert dans un nouvel onglet.",
+    "googleNotConfigured": "Google Drive n'est pas configuré pour cette app. Va dans Réglages → Intégrations pour plus d'infos.",
+    "googleExportError": "La connexion ou l'export vers Google Docs a échoué. Réessaie depuis Réglages → Intégrations.",
     "noWorkspaces": "Vous n'avez pas encore d'espace de travail.",
     "createWorkspace": "Créer un espace",
     "currentlyShared": "Partagé ici",

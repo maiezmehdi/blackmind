@@ -18,6 +18,7 @@ import { CourseProvider, useCourseContext } from './store/useCourseStore';
 // Components
 import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
+import HelpAssistant from './components/Shared/HelpAssistant';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -41,8 +42,8 @@ const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
 
 const AppLayout = ({ children }: { children?: React.ReactNode }) => {
   const { language, t } = useLanguage();
+  const { preferences } = useCourseContext();
 
-  
   const location = useLocation();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -96,9 +97,9 @@ const AppLayout = ({ children }: { children?: React.ReactNode }) => {
         <div className={`flex-1 ${isFullHeightPage ? 'overflow-hidden flex flex-col' : 'overflow-y-auto no-scrollbar'}`}>
           {children}
         </div>
-
-        
       </main>
+
+      {preferences.showAiAssistant && <HelpAssistant />}
     </div>
   );
 };
@@ -128,8 +129,12 @@ const AppContent = () => {
     const body = document.body;
     const html = document.documentElement;
 
-    body.classList.remove('mode-dyslexia', 'mode-contrast', 'mode-falc', 'reduce-motion', 'mode-links', 'mode-audio', 'mode-focus');
-    
+    body.classList.remove(
+      'mode-dyslexia', 'mode-contrast', 'mode-falc', 'reduce-motion', 'mode-links', 'mode-audio', 'mode-focus',
+      'mode-keyboard-nav', 'font-serif', 'font-monospace', 'font-dyslexic',
+    );
+    html.classList.remove('mode-colorblind-protanopia', 'mode-colorblind-deuteranopia', 'mode-colorblind-tritanopia');
+
     if (accessibility.dyslexiaMode) body.classList.add('mode-dyslexia');
     if (accessibility.highContrast) body.classList.add('mode-contrast');
     if (accessibility.simplifiedReading) body.classList.add('mode-falc');
@@ -137,6 +142,9 @@ const AppContent = () => {
     if (accessibility.highlightLinks) body.classList.add('mode-links');
     if (accessibility.audioReading) body.classList.add('mode-audio');
     if (accessibility.adhdFocusMode) body.classList.add('mode-focus');
+    if (accessibility.keyboardNav) body.classList.add('mode-keyboard-nav');
+    if (accessibility.fontFamily !== 'default') body.classList.add(`font-${accessibility.fontFamily}`);
+    if (accessibility.colorBlindMode !== 'none') html.classList.add(`mode-colorblind-${accessibility.colorBlindMode}`);
 
     html.style.setProperty('--app-font-scale', accessibility.textSize.toString());
     html.style.setProperty('--app-line-height', accessibility.lineHeight.toString());

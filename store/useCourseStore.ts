@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { Course, UserProfile, Workspace, Invitation, WorkspaceMember, Language, SubscriptionTier, AccessibilitySettings } from '../types';
+import { Course, UserProfile, Workspace, Invitation, WorkspaceMember, Language, SubscriptionTier, AccessibilitySettings, AppPreferences } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface CourseContextType {
@@ -13,12 +13,15 @@ interface CourseContextType {
   activeCourse: Course | null;
   language: Language;
   accessibility: AccessibilitySettings;
-  
+  preferences: AppPreferences;
+
   // Helpers
   t: (key: string, variables?: any) => string;
   setLanguage: (lang: Language) => void;
   updateAccessibility: (settings: Partial<AccessibilitySettings>) => void;
   resetAccessibility: () => void;
+  updatePreferences: (prefs: Partial<AppPreferences>) => void;
+  resetPreferences: () => void;
 
   setActiveCourse: (course: Course | null) => void;
   addCourse: (course: Course) => void;
@@ -51,6 +54,15 @@ const DEFAULT_USER: UserProfile = {
   email: 'john.doe@blackmind.ai',
   avatar: undefined,
   subscription: 'free'
+};
+
+const DEFAULT_PREFERENCES: AppPreferences = {
+  notifications: {
+    email: true,
+    push: false,
+    aiUpdates: true,
+  },
+  showAiAssistant: true,
 };
 
 const DEFAULT_ACCESSIBILITY: AccessibilitySettings = {
@@ -341,6 +353,11 @@ export const CourseProvider = ({ children }: { children?: React.ReactNode }) => 
     return saved ? JSON.parse(saved) : DEFAULT_ACCESSIBILITY;
   });
 
+  const [preferences, setPreferences] = useState<AppPreferences>(() => {
+    const saved = localStorage.getItem('blackmind_preferences');
+    return saved ? { ...DEFAULT_PREFERENCES, ...JSON.parse(saved) } : DEFAULT_PREFERENCES;
+  });
+
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [activeCourse, setActiveCourse] = useState<Course | null>(null);
 
@@ -367,6 +384,22 @@ export const CourseProvider = ({ children }: { children?: React.ReactNode }) => 
   useEffect(() => {
     localStorage.setItem('blackmind_accessibility', JSON.stringify(accessibility));
   }, [accessibility]);
+
+  useEffect(() => {
+    localStorage.setItem('blackmind_preferences', JSON.stringify(preferences));
+  }, [preferences]);
+
+  const updatePreferences = useCallback((prefs: Partial<AppPreferences>) => {
+    setPreferences(prev => ({
+      ...prev,
+      ...prefs,
+      notifications: { ...prev.notifications, ...(prefs.notifications || {}) },
+    }));
+  }, []);
+
+  const resetPreferences = useCallback(() => {
+    setPreferences(DEFAULT_PREFERENCES);
+  }, []);
 
   const updateAccessibility = useCallback((settings: Partial<AccessibilitySettings>) => {
     setAccessibility(prev => ({ ...prev, ...settings }));
@@ -552,6 +585,9 @@ export const CourseProvider = ({ children }: { children?: React.ReactNode }) => 
       accessibility,
       updateAccessibility,
       resetAccessibility,
+      preferences,
+      updatePreferences,
+      resetPreferences,
       t,
       setActiveCourse, 
       addCourse, 
