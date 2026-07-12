@@ -38,12 +38,19 @@ export const extractJson = (s: string): string => {
 // which is far more reliable than "no text" prose alone at keeping generated
 // gibberish text/letters/watermarks out of the image.
 const DEFAULT_NEGATIVE = 'text, words, letters, writing, caption, subtitle, watermark, logo, signature, typography, infographic, diagram, poster, book cover, labels, chart';
+// Optional — Pollinations is called via a plain <img src>, not fetch(), so
+// there's no way to send an Authorization header; the key is passed as a
+// query param instead. Without it, requests are anonymous: rate-limited to
+// 1/15s and nologo is silently ignored (watermark stays). With it, they're
+// attributed to the account (higher limits, watermark actually removed).
+const POLLINATIONS_KEY = process.env.POLLINATIONS_API_KEY || '';
 export const freeImageUrl = (prompt: string, w = 1280, h = 720, negative: string = DEFAULT_NEGATIVE): string => {
   const clean = (prompt || 'abstract').replace(/\s+/g, ' ').trim().slice(0, 320);
   let seed = 0;
   for (let i = 0; i < clean.length; i++) seed = (seed * 31 + clean.charCodeAt(i)) >>> 0;
   const params = new URLSearchParams({ width: String(w), height: String(h), nologo: 'true', model: 'flux', seed: String(seed) });
   if (negative) params.set('negative', negative);
+  if (POLLINATIONS_KEY) params.set('key', POLLINATIONS_KEY);
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(clean)}?${params.toString()}`;
 };
 

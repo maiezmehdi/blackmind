@@ -29,6 +29,11 @@ export default defineConfig(({ mode }) => {
         // FLUX.1-dev via Inference Providers) between Gemini and the Pollinations
         // fallback. Without it, images skip straight from Gemini to Pollinations.
         'process.env.HUGGINGFACE_API_KEY': JSON.stringify(env.HUGGINGFACE_API_KEY || ''),
+        // Optional — attributes the free keyless Pollinations fallback to a
+        // Pollinations account (higher rate limit, watermark actually
+        // removed). Sent as a URL query param, not a header, since
+        // Pollinations is hit via <img src> to avoid needing a backend.
+        'process.env.POLLINATIONS_API_KEY': JSON.stringify(env.POLLINATIONS_API_KEY || ''),
         // Optional — enables real Google Drive/Docs publishing (OAuth Client ID,
         // not a secret: safe to inline client-side). Without it, the Google
         // integration UI shows an honest "not configured" state.
