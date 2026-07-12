@@ -142,17 +142,55 @@ const ASPECT_DIMENSIONS: Record<string, [number, number]> = {
   '1:1': [1024, 1024],
 };
 
-// Image: try each Gemini key, then fall back to free Pollinations. Forcing
-// every image to the same aspect ratio regardless of context (a cover vs. a
-// small in-lesson illustration) not only looks wrong once placed, it can
-// visibly warp/compress the model's own generated content when the subject
-// doesn't naturally suit that shape — so callers pass what they actually need.
+const HF_KEY = process.env.HUGGINGFACE_API_KEY || '';
+const HF_IMAGE_MODEL = 'black-forest-labs/FLUX.1-dev';
+
+// One Hugging Face (Inference Providers, hf-inference) FLUX.1-dev attempt →
+// data URL, or throws. HF returns raw image bytes, not JSON/base64 — the
+// response is read as a Blob and re-encoded to a data: URL via FileReader,
+// NOT URL.createObjectURL: courses persist block.value as a plain string in
+// localStorage, and a blob: URL goes dead the moment the page reloads. A
+// data: URL is self-contained, like the Gemini path.
+const hfFluxImageOnce = async (prompt: string, aspectRatio: string): Promise<string> => {
+  const [width, height] = ASPECT_DIMENSIONS[aspectRatio] || ASPECT_DIMENSIONS['4:3'];
+  const res = await fetch(`https://router.huggingface.co/hf-inference/models/${HF_IMAGE_MODEL}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${HF_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ inputs: prompt, parameters: { width, height, negative_prompt: DEFAULT_NEGATIVE } }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} ${body.slice(0, 300)}`);
+  }
+  const blob = await res.blob();
+  const typed = blob.type ? blob : new Blob([blob], { type: 'image/jpeg' }); // defensive: some proxies omit Content-Type
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('failed to read HF image blob'));
+    reader.readAsDataURL(typed);
+  });
+};
+
+// Image: try each Gemini key, then Hugging Face FLUX.1-dev if a key is
+// configured, then fall back to free keyless Pollinations. Forcing every
+// image to the same aspect ratio regardless of context (a cover vs. a small
+// in-lesson illustration) not only looks wrong once placed, it can visibly
+// warp/compress the model's own generated content when the subject doesn't
+// naturally suit that shape — so callers pass what they actually need.
 export const generateImage = async (prompt: string, aspectRatio: string = '4:3'): Promise<string> => {
   for (let i = 0; i < GEMINI_KEYS.length; i++) {
     try {
       return await geminiImageOnce(GEMINI_KEYS[i], prompt, aspectRatio);
     } catch (e: any) {
       console.warn(`[ai] Gemini image key ${i + 1} failed, trying next:`, e?.message || e);
+    }
+  }
+  if (HF_KEY) {
+    try {
+      return await hfFluxImageOnce(prompt, aspectRatio);
+    } catch (e: any) {
+      console.warn('[ai] Hugging Face FLUX.1-dev failed, falling back to Pollinations:', e?.message || e);
     }
   }
   const [w, h] = ASPECT_DIMENSIONS[aspectRatio] || ASPECT_DIMENSIONS['4:3'];
@@ -415,7 +453,7 @@ export const refineContent = async (text: string, action: string, thinking: bool
 export const generateAiBlock = async (type: string, prompt: string, options: any = {}): Promise<any> => {
   try {
     if (type === 'image') {
-      // Gemini image (across the keys) → free Pollinations fallback.
+      // Gemini image (across the keys) → Hugging Face FLUX.1-dev if configured → free Pollinations fallback.
       return await generateImage(prompt, options.aspectRatio);
     }
 

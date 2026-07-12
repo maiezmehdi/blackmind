@@ -25,6 +25,10 @@ export default defineConfig(({ mode }) => {
         // (YouTube Data API v3, free quota). Without it, the video block falls
         // back to a manual "search on YouTube" link.
         'process.env.YOUTUBE_API_KEY': JSON.stringify(env.YOUTUBE_API_KEY || ''),
+        // Optional — adds a second, higher-quality free image tier (Hugging Face
+        // FLUX.1-dev via Inference Providers) between Gemini and the Pollinations
+        // fallback. Without it, images skip straight from Gemini to Pollinations.
+        'process.env.HUGGINGFACE_API_KEY': JSON.stringify(env.HUGGINGFACE_API_KEY || ''),
         // Optional — enables real Google Drive/Docs publishing (OAuth Client ID,
         // not a secret: safe to inline client-side). Without it, the Google
         // integration UI shows an honest "not configured" state.
