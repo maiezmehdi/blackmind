@@ -67,7 +67,7 @@ const AppLayout = ({ children }: { children?: React.ReactNode }) => {
 
   const toggleSidebarCollapse = () => setSidebarCollapsed(!isSidebarCollapsed);
 
-  const isFullHeightPage = location.pathname === '/create' || location.pathname.startsWith('/learn/');
+  const isFullHeightPage = location.pathname === '/create' || location.pathname.startsWith('/learn/') || location.pathname === '/workspaces';
   const hideHeader = location.pathname === '/create' && !isMobile;
 
   return (
@@ -151,7 +151,7 @@ const AppContent = () => {
       html.style.setProperty('--gemini-bg', '#000000');
     } else if (theme === 'dark') {
       html.classList.add('dark');
-      html.style.setProperty('--gemini-bg', '#121212');
+      html.style.setProperty('--gemini-bg', '#101010');
     } else {
       html.style.removeProperty('--gemini-bg');
     }

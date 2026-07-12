@@ -27,10 +27,10 @@
 }
 
 .dark {
-  --gemini-bg: #0A0A0B;
-  --gemini-surface: #121214;
-  --gemini-header: rgba(10, 10, 11, 0.8);
-  --gemini-sidebar: #0A0A0B;
+  --gemini-bg: #101010;
+  --gemini-surface: #101010;
+  --gemini-header: rgba(16, 16, 16, 0.8);
+  --gemini-sidebar: #101010;
   --gemini-border: rgba(255, 255, 255, 0.08);
   --gemini-text: #F5F5F5;
   --gemini-dim: #A3A3A3;
