@@ -83,7 +83,7 @@ import {
   Smile,
   GraduationCap,
   Megaphone,
-  BookOpen, Calendar,
+  BookOpen,
   XCircle,
   ListChecks,
   Highlighter,
@@ -2367,29 +2367,6 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                <div className="max-w-md space-y-2">
                  <h3 className="text-2xl md:text-3xl font-bold font-outfit text-gemini-text">{t('create.readyTitle')}</h3>
                  <p className="text-gemini-dim">{t('create.readySubtitle')}</p>
-               </div>
-               
-               {/* 4 Templates */}
-               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full mt-8">
-                 {[
-                   { title: t('create.templates.chapters5Title'), icon: BookOpen, prompt: t('create.templates.chapters5Prompt') },
-                   { title: t('create.templates.mini3Title'), icon: Zap, prompt: t('create.templates.mini3Prompt') },
-                   { title: t('create.templates.intensive7Title'), icon: Calendar, prompt: t('create.templates.intensive7Prompt') },
-                   { title: t('create.templates.quizTitle'), icon: MessageSquare, prompt: t('create.templates.quizPrompt') }
-                 ].map((template, idx) => (
-                   <button 
-                     key={idx}
-                     onClick={() => setPrompt(template.prompt)}
-                     className="flex flex-col items-start gap-3 p-6 rounded-[2rem] bg-gemini-surface border border-gemini-border hover:border-gemini-accent hover:shadow-lg transition-all text-left group"
-                   >
-                     <div className="w-10 h-10 rounded-xl bg-gemini-bg flex items-center justify-center text-gemini-dim group-hover:text-gemini-accent transition-colors">
-                       <template.icon size={20} />
-                     </div>
-                     <span className="font-bold text-sm text-gemini-text group-hover:text-gemini-accent transition-colors">
-                       {template.title}
-                     </span>
-                   </button>
-                 ))}
                </div>
              </div>
              )
