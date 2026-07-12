@@ -607,7 +607,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
               isThinkingMode,
               contentLanguage,
             )
-          : await generateCourseStructure(activePrompt, isThinkingMode, contentLanguage);
+          : await generateCourseStructure(activePrompt, historyForAi, isThinkingMode, contentLanguage);
 
         let responseData: any;
         try {
@@ -626,11 +626,12 @@ const CreatePage: React.FC<CreatePageProps> = () => {
         const commentary = responseData.commentary || "Architecture générée.";
         const suggestions = responseData.suggestions || [];
 
-        // Failed generation returns an empty "Erreur" course — surface the
-        // model's own commentary if it gave one, otherwise a clear fallback,
-        // instead of creating a broken course in the workspace.
+        // Failed generation returns an empty "Erreur" course. This is also
+        // how the assistant asks clarifying questions before generating
+        // (e.g. "quel niveau vises-tu ?") — surface its commentary and any
+        // quick-reply suggestions instead of creating a broken course.
         if (!courseData || courseData.title === 'Erreur' || !Array.isArray(courseData.modules) || courseData.modules.length === 0) {
-          setMessages(prev => [...prev, { role: 'assistant', content: responseData.commentary || t('create.quotaError'), timestamp: new Date() }]);
+          setMessages(prev => [...prev, { role: 'assistant', content: responseData.commentary || t('create.quotaError'), suggestions, timestamp: new Date() }]);
           setIsGenerating(false);
           return;
         }

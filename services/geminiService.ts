@@ -188,13 +188,27 @@ const generateText = async (system: string, user: string, opts: { json?: boolean
   throw lastErr;
 };
 
-export const generateCourseStructure = async (prompt: string, thinking: boolean = false, language: string = 'fr'): Promise<string> => {
+export const generateCourseStructure = async (
+  prompt: string,
+  history: ChatTurn[] = [],
+  thinking: boolean = false,
+  language: string = 'fr',
+): Promise<string> => {
   const systemInstruction = `
-    Rôle : Tu es "Blackmind Architect".
-    Style : Minimaliste, intelligent, précis, direct, légèrement provocateur. "No fluff".
-    MISSION : Génère une structure JSON pour un cours complet. TOUT le contenu généré (titres, modules, leçons, textes, quiz) DOIT ETRE redigé dans la langue spécifiée: ${language}.
+    Rôle : Tu es "Blackmind Architect", l'assistant conversationnel qui aide l'auteur à concevoir son cours.
+    Style : Minimaliste, intelligent, précis, direct, légèrement provocateur. "No fluff". Tu parles comme dans une vraie conversation qui continue, pas comme si chaque message repartait de zéro.
+    Aucun cours n'existe encore : c'est la phase de conception, avant la génération.
 
-    SI LE MESSAGE N'EST PAS UN SUJET DE COURS (salutation comme "salut"/"hi", message vague, question générale sans sujet clair) : ne force pas une structure inventée. Réponds avec chaleur et naturel dans "commentary" (accueille l'auteur, demande-lui sur quel sujet il veut construire son cours) et renvoie "course": { "title": "Erreur", "description": "", "category": "Erreur", "modules": [] }.
+    MISSION — décide d'abord si tu as assez d'informations pour générer un bon cours, ou s'il vaut mieux d'abord clarifier avec l'auteur :
+
+    1. NE GÉNÈRE PAS ENCORE si le sujet n'est pas clair (salutation comme "salut"/"hi", message vague) OU si c'est le tout début d'une conversation sur un sujet réel mais sans précision sur le niveau, l'angle ou la profondeur souhaités. Dans ce cas :
+       - Réponds avec chaleur et naturel dans "commentary" : accueille l'auteur / confirme le sujet, et pose 1 à 2 questions courtes et utiles (niveau visé, nombre de modules souhaité, angle particulier).
+       - Propose 2 à 4 réponses rapides pertinentes dans "suggestions" (inclus toujours une option du type "Génère directement, choisis pour moi").
+       - Renvoie "course": { "title": "Erreur", "description": "", "category": "Erreur", "modules": [] } (aucun cours n'est créé à cette étape).
+    2. GÉNÈRE la structure complète si : l'auteur a déjà répondu à tes questions dans l'historique, OU a donné assez de détails dès le départ, OU demande explicitement de générer maintenant ("vas-y", "génère", "oui", "lance", "direct", "choisis pour moi", etc.).
+    3. Ne repose jamais deux fois la même question : si l'historique montre que tu as déjà demandé des précisions, le prochain message doit déclencher la génération (sauf si l'auteur pose lui-même une nouvelle question).
+
+    Quand tu génères : TOUT le contenu (titres, modules, leçons, textes, quiz) DOIT ETRE redigé dans la langue spécifiée: ${language}.
 
     IMPORTANT : STRUCTURE PÉDAGOGIQUE OBLIGATOIRE
     Le TOUT PREMIER bloc de la TOUTE PREMIÈRE leçon du premier module DOIT être un bloc de type "overview" contenant les métadonnées pédagogiques.
@@ -259,12 +273,19 @@ export const generateCourseStructure = async (prompt: string, thinking: boolean 
     }
   `;
 
+  const historyText = history
+    .slice(-8)
+    .map((m) => `${m.role === 'user' ? 'Auteur' : 'Toi'} : ${m.content}`)
+    .join('\n');
+
+  const userPrompt = [
+    historyText ? `Historique récent de la conversation :\n${historyText}` : null,
+    `Dernier message de l'auteur : "${prompt}"`,
+    `Réponds en JSON (structure complète si tu génères, ou question de clarification si tu préfères d'abord clarifier).`,
+  ].filter(Boolean).join('\n\n');
+
   try {
-    return await generateText(
-      systemInstruction,
-      `Génère une structure de cours complète sur le sujet : "${prompt}". Réponds en JSON.`,
-      { json: true, maxTokens: 8000 },
-    );
+    return await generateText(systemInstruction, userPrompt, { json: true, maxTokens: 8000 });
   } catch (e: any) {
     console.error('[ai] Structure generation failed', e?.message || e);
     return JSON.stringify({
