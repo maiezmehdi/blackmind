@@ -2095,7 +2095,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
 
       <div className="flex-1 flex overflow-hidden">
         {view === 'chat' && !isPreviewMode && (
-          <div className="w-full md:w-[450px] flex flex-col border-r border-gemini-border bg-gemini-sidebar animate-in slide-in-from-left duration-300 shrink-0 shadow-xl pb-0 relative">
+          <div className="w-full md:w-[450px] flex flex-col border-r border-gemini-border bg-gemini-sidebar animate-in slide-in-from-left duration-300 shrink-0 shadow-xl pb-0 relative md:m-3 md:border md:rounded-3xl md:overflow-hidden md:shadow-2xl">
             <div className="flex-1 overflow-y-auto p-4 space-y-8 no-scrollbar">
               {messages.map((m, i) => (
                 <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'} group/msg space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
