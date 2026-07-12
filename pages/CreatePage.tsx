@@ -2309,7 +2309,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
           </div>
         )}
 
-        <div className={`flex-1 overflow-y-auto p-4 md:p-16 bg-gemini-bg no-scrollbar relative ${view === 'chat' && !isPreviewMode ? 'hidden md:block' : 'block'}`} ref={canvasRef} onMouseUp={handleSelection}>
+        <div className={`flex-1 overflow-y-auto p-4 md:p-16 bg-gemini-bg canvas-scrollbar relative ${view === 'chat' && !isPreviewMode ? 'hidden md:block' : 'block'}`} ref={canvasRef} onMouseUp={handleSelection}>
            {(!generatedCourse && !generatedStory) ? (
              <div className="h-full flex flex-col items-center justify-center text-center space-y-8 animate-in fade-in duration-500 max-w-3xl mx-auto px-4">
                <div className="w-24 h-24 bg-gemini-surface rounded-[2.5rem] flex items-center justify-center border border-gemini-border shadow-2xl">

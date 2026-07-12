@@ -155,6 +155,38 @@ model-viewer {
   scrollbar-width: none;
 }
 
+/* Thin, styled scrollbar — hidden on touch/mobile (no room, no hover to
+   reveal it), shown on desktop like Claude's own canvas scrollbar. */
+.canvas-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.canvas-scrollbar::-webkit-scrollbar {
+  width: 0;
+}
+@media (min-width: 768px) {
+  .canvas-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--gemini-border) transparent;
+  }
+  .canvas-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+  .canvas-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .canvas-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--gemini-border);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  .canvas-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--gemini-dim);
+    background-clip: padding-box;
+  }
+}
+
 /* Design-system glass surface (was referenced across pages but never defined) */
 .glass-card {
   background-color: color-mix(in srgb, var(--gemini-surface) 60%, transparent);
