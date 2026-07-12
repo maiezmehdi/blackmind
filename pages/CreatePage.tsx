@@ -217,6 +217,19 @@ const CourseMetadataCard: React.FC<{ data: any, t: any }> = ({ data, t }) => {
 
 interface CreatePageProps {}
 
+// Replaces the Nth (0-based) occurrence of `search` in `source` — used instead
+// of String.prototype.replace(search, ...), which always edits the FIRST
+// match regardless of which instance the user actually selected.
+const replaceNthOccurrence = (source: string, search: string, replacement: string, n: number): string => {
+  if (!search) return source;
+  let idx = -1;
+  for (let i = 0; i <= n; i++) {
+    idx = source.indexOf(search, idx + 1);
+    if (idx === -1) return source; // fewer occurrences than expected — leave untouched
+  }
+  return source.slice(0, idx) + replacement + source.slice(idx + search.length);
+};
+
 const CreatePage: React.FC<CreatePageProps> = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -289,6 +302,11 @@ const CreatePage: React.FC<CreatePageProps> = () => {
 
   const [selectedText, setSelectedText] = useState('');
   const [selectionContext, setSelectionContext] = useState<{ modId: string, lesId: string, blockId: string } | null>(null);
+  // Which occurrence (0-based) of selectedText within the block's rendered
+  // text was actually highlighted — needed because words/phrases often repeat
+  // in a paragraph, and a naive first-match replace would silently edit the
+  // wrong spot instead of the text the user selected.
+  const [selectionOccurrence, setSelectionOccurrence] = useState(0);
   const [toolbarPos, setToolbarPos] = useState({ x: 0, y: 0 });
   const [showToolbar, setShowToolbar] = useState(false);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
@@ -699,7 +717,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                 if (b.id !== selectionContext.blockId) return b;
                 let newValue = b.value;
                 if (typeof b.value === 'string' && selectedText) {
-                  newValue = b.value.replace(selectedText, refinedText);
+                  newValue = replaceNthOccurrence(b.value, selectedText, refinedText, selectionOccurrence);
                 } else {
                   newValue = refinedText;
                 }
@@ -741,7 +759,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
               if (b.id !== selectionContext.blockId) return b;
               let newValue = b.value;
               if (typeof b.value === 'string') {
-                newValue = b.value.replace(selectedText, formattedText);
+                newValue = replaceNthOccurrence(b.value, selectedText, formattedText, selectionOccurrence);
               }
               return { ...b, value: newValue };
             })
@@ -1025,7 +1043,25 @@ const CreatePage: React.FC<CreatePageProps> = () => {
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       setToolbarPos({ x: rect.left + rect.width / 2, y: rect.top - 10 });
-      setSelectedText(selection.toString());
+      const text = selection.toString();
+      setSelectedText(text);
+
+      // Figure out WHICH occurrence of `text` inside the block was picked —
+      // words/phrases often repeat, and downstream code needs to edit the
+      // exact selected instance, not just the first match in the source.
+      let occurrence = 0;
+      if (blockEl) {
+        try {
+          const precedingRange = document.createRange();
+          precedingRange.setStart(blockEl, 0);
+          precedingRange.setEnd(range.startContainer, range.startOffset);
+          const precedingText = precedingRange.toString();
+          occurrence = precedingText.split(text).length - 1;
+        } catch {
+          occurrence = 0;
+        }
+      }
+      setSelectionOccurrence(occurrence);
       setShowToolbar(true);
     } else if (!isToolbarLoading) {
       setTimeout(() => {
