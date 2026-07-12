@@ -2174,19 +2174,24 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                       
                       {m.role === 'assistant' && !isGenerating && (
                         <div className="absolute -right-12 top-0 flex flex-col gap-1 opacity-0 group-hover/msg:opacity-100 transition-all">
-                          <button 
+                          <button
                             onClick={() => handlePlayMessage(i, m.content)}
                             className={`p-2 rounded-xl transition-all border shadow-sm ${speakingMessageIdx === i ? 'bg-gemini-accent text-gemini-bg border-gemini-accent' : 'bg-gemini-surface text-gemini-dim border-gemini-border hover:text-gemini-accent hover:border-gemini-accent'}`}
                             title={t('create.listenToMessage')}
                           >
                             {speakingMessageIdx === i ? <Volume2 size={14} className="animate-pulse" /> : <Play size={14} />}
                           </button>
-                          <button 
+                        </div>
+                      )}
+
+                      {m.role === 'user' && (
+                        <div className="absolute -left-12 top-0 flex flex-col gap-1 opacity-0 group-hover/msg:opacity-100 transition-all">
+                          <button
                             onClick={() => {
                               navigator.clipboard.writeText(m.content);
                             }}
                             className="p-2 rounded-xl transition-all border shadow-sm bg-gemini-surface text-gemini-dim border-gemini-border hover:text-gemini-accent hover:border-gemini-accent"
-                            title="Copier le texte"
+                            title={t('create.copyMessage')}
                           >
                             <Copy size={14} />
                           </button>
