@@ -233,6 +233,26 @@ const replaceNthOccurrence = (source: string, search: string, replacement: strin
   return source.slice(0, idx) + replacement + source.slice(idx + search.length);
 };
 
+// Every keystroke of unrelated canvas UI state (toolbar position, selection
+// context, hover menus...) re-renders the whole CreatePage tree. Without
+// memoization, React re-sets this div's innerHTML on every one of those
+// renders even though the markdown itself hasn't changed — and setting
+// innerHTML on a live contentEditable node always destroys any active
+// browser selection inside it. Isolating it here, keyed only on the actual
+// content/editability, stops that from happening.
+const TextBlockContent = React.memo(
+  ({ html, editable, onBlur }: { html: string; editable: boolean; onBlur: (e: React.FocusEvent<HTMLDivElement>) => void }) => (
+    <div
+      className="prose-gemini"
+      contentEditable={editable}
+      suppressContentEditableWarning
+      onBlur={onBlur}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  ),
+  (prev, next) => prev.html === next.html && prev.editable === next.editable
+);
+
 const CreatePage: React.FC<CreatePageProps> = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -1051,18 +1071,26 @@ const CreatePage: React.FC<CreatePageProps> = () => {
   };
 
   const updateBlockValue = (moduleId: string, lessonId: string, blockId: string, newValue: any) => {
-    if (!generatedCourse) return;
-    const updatedModules = generatedCourse.modules.map(mod => {
-      if (mod.id !== moduleId) return mod;
-      return {
-        ...mod,
-        lessons: mod.lessons.map(lesson => {
-          if (lesson.id !== lessonId) return lesson;
-          return { ...lesson, content: lesson.content.map(b => b.id === blockId ? { ...b, value: newValue } : b) };
-        })
-      };
+    // Functional update, not a closure over `generatedCourse`: this is invoked
+    // from a memoized block's onBlur, whose closure can be stale by the time
+    // it actually fires (React.memo intentionally skips re-handing it a fresh
+    // one on every unrelated re-render — see TextBlockContent). Reading the
+    // latest state via the updater avoids clobbering edits made elsewhere
+    // in the meantime.
+    setGeneratedCourse(prev => {
+      if (!prev) return prev;
+      const updatedModules = prev.modules.map(mod => {
+        if (mod.id !== moduleId) return mod;
+        return {
+          ...mod,
+          lessons: mod.lessons.map(lesson => {
+            if (lesson.id !== lessonId) return lesson;
+            return { ...lesson, content: lesson.content.map(b => b.id === blockId ? { ...b, value: newValue } : b) };
+          })
+        };
+      });
+      return { ...prev, modules: updatedModules };
     });
-    setGeneratedCourse({ ...generatedCourse, modules: updatedModules });
   };
 
   const moveBlock = (moduleId: string, lessonId: string, blockId: string, direction: 'up' | 'down') => {
@@ -1090,6 +1118,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
   const handleSelection = useCallback((e: React.MouseEvent) => {
     const selection = window.getSelection();
     if (selection && selection.toString().trim().length > 0) {
+      const range = selection.getRangeAt(0);
       let target = e.target as HTMLElement;
       let blockEl = target.closest('[data-block-id]');
       if (blockEl) {
@@ -1098,7 +1127,6 @@ const CreatePage: React.FC<CreatePageProps> = () => {
         const lesId = blockEl.getAttribute('data-les-id') || '';
         setSelectionContext({ modId, lesId, blockId });
       }
-      const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       setToolbarPos({ x: rect.left + rect.width / 2, y: rect.top - 10 });
       const text = selection.toString();
@@ -2281,7 +2309,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
           </div>
         )}
 
-        <div className={`flex-1 overflow-y-auto p-4 md:p-16 bg-gemini-bg no-scrollbar relative ${view === 'chat' && !isPreviewMode ? 'hidden md:block' : 'block'}`} ref={canvasRef} onClick={handleSelection}>
+        <div className={`flex-1 overflow-y-auto p-4 md:p-16 bg-gemini-bg no-scrollbar relative ${view === 'chat' && !isPreviewMode ? 'hidden md:block' : 'block'}`} ref={canvasRef} onMouseUp={handleSelection}>
            {(!generatedCourse && !generatedStory) ? (
              <div className="h-full flex flex-col items-center justify-center text-center space-y-8 animate-in fade-in duration-500 max-w-3xl mx-auto px-4">
                <div className="w-24 h-24 bg-gemini-surface rounded-[2.5rem] flex items-center justify-center border border-gemini-border shadow-2xl">
@@ -2492,7 +2520,11 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                                             </div>
                                           )}
                                           {block.type === 'text' && (
-                                            <div className="prose-gemini" contentEditable={!isPreviewMode} suppressContentEditableWarning={true} onBlur={(e) => updateBlockValue(mod.id, lesson.id, block.id, htmlToMarkdown(e.currentTarget.innerHTML))} dangerouslySetInnerHTML={{ __html: marked.parse(block.value || '') }} />
+                                            <TextBlockContent
+                                              html={marked.parse(block.value || '') as string}
+                                              editable={!isPreviewMode}
+                                              onBlur={(e) => updateBlockValue(mod.id, lesson.id, block.id, htmlToMarkdown(e.currentTarget.innerHTML))}
+                                            />
                                           )}
                                           {block.type === 'image' && (
                                             <div className="rounded-3xl overflow-hidden border border-gemini-border shadow-lg">
