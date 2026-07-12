@@ -32,7 +32,7 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
           {FAQ_KEYS.map((key) => (
             <div key={key} className="space-y-1.5">
               <p className="font-bold text-sm text-gemini-text">{t(`help.${key}Q`)}</p>
-              <p className="text-sm text-gemini-dim leading-relaxed">{t(`help.${key}A`)}</p>
+              <p className="text-sm text-gemini-dim leading-relaxed whitespace-pre-line">{t(`help.${key}A`)}</p>
             </div>
           ))}
         </div>

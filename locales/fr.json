@@ -236,7 +236,7 @@
   "help": {
     "title": "Besoin d'aide ?",
     "aiKeysQ": "Comment fonctionne la génération IA (Gemini, Qwen) ?",
-    "aiKeysA": "Blackmind utilise Gemini comme fournisseur principal (jusqu'à 3 clés essayées dans l'ordre), avec Qwen en repli automatique. Deux façons de générer du contenu : tape un sujet dans le chat, ou importe un document existant via le menu + → Importer depuis Google Workspace pour le transformer en cours structuré. Configure tes clés dans les variables d'environnement du projet — sans clé, la génération ne fonctionnera pas.",
+    "aiKeysA": "Blackmind est propulsé par Gemini et Qwen.\n\nDeux façons de générer du contenu :\n• Tape un sujet dans le chat.\n• Importe un document existant via le menu + → Importer depuis Google Workspace, il sera transformé en cours structuré.",
     "exportQ": "Comment exporter mon cours ?",
     "exportA": "Depuis le menu « ... » d'un cours, choisis Télécharger le cours pour obtenir un PDF ou un DOCX, ou Ouvrir dans Google Docs si ton compte Google est connecté.",
     "googleDriveQ": "Comment lier mon compte Google Drive ?",
