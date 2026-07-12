@@ -4,6 +4,7 @@
 // next. Gemini is preferred for quality; Qwen is the last-resort backup.
 
 import { GoogleGenAI, Modality } from '@google/genai';
+import { InferenceClient } from '@huggingface/inference';
 
 const GEMINI_KEYS = [process.env.GEMINI_KEY_1, process.env.GEMINI_KEY_2, process.env.GEMINI_KEY_3].filter(Boolean) as string[];
 // gemini-2.5-flash is no longer offered to new API keys; 2.0-flash is broadly
@@ -144,32 +145,30 @@ const ASPECT_DIMENSIONS: Record<string, [number, number]> = {
 
 const HF_KEY = process.env.HUGGINGFACE_API_KEY || '';
 const HF_IMAGE_MODEL = 'black-forest-labs/FLUX.1-dev';
+// hf-inference (HF's own CPU-oriented endpoint) no longer serves GPU
+// text-to-image models — routing through it 410s. fal-ai runs FLUX.1-dev via
+// an async queue (submit → poll → fetch result), which the official
+// @huggingface/inference SDK handles for us; hand-rolling a single POST like
+// the Gemini/HF-inference calls above doesn't work against a queue-based
+// provider.
+const hfClient = HF_KEY ? new InferenceClient(HF_KEY) : null;
 
-// One Hugging Face (Inference Providers, hf-inference) FLUX.1-dev attempt →
-// data URL, or throws. HF returns raw image bytes, not JSON/base64 — the
-// response is read as a Blob and re-encoded to a data: URL via FileReader,
-// NOT URL.createObjectURL: courses persist block.value as a plain string in
-// localStorage, and a blob: URL goes dead the moment the page reloads. A
-// data: URL is self-contained, like the Gemini path.
+// One Hugging Face Inference Providers (fal-ai) FLUX.1-dev attempt → data
+// URL, or throws. outputType: 'dataUrl' makes the SDK return a self-contained
+// data: URL directly (not a blob: URL) — courses persist block.value as a
+// plain string in localStorage, and a blob: URL goes dead the moment the
+// page reloads.
 const hfFluxImageOnce = async (prompt: string, aspectRatio: string): Promise<string> => {
   const [width, height] = ASPECT_DIMENSIONS[aspectRatio] || ASPECT_DIMENSIONS['4:3'];
-  const res = await fetch(`https://router.huggingface.co/hf-inference/models/${HF_IMAGE_MODEL}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${HF_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ inputs: prompt, parameters: { width, height, negative_prompt: DEFAULT_NEGATIVE } }),
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`HTTP ${res.status} ${body.slice(0, 300)}`);
-  }
-  const blob = await res.blob();
-  const typed = blob.type ? blob : new Blob([blob], { type: 'image/jpeg' }); // defensive: some proxies omit Content-Type
-  return await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error('failed to read HF image blob'));
-    reader.readAsDataURL(typed);
-  });
+  return await hfClient!.textToImage(
+    {
+      model: HF_IMAGE_MODEL,
+      provider: 'fal-ai',
+      inputs: prompt,
+      parameters: { width, height, negative_prompt: DEFAULT_NEGATIVE },
+    },
+    { outputType: 'dataUrl' },
+  );
 };
 
 // Image: try each Gemini key, then Hugging Face FLUX.1-dev if a key is
