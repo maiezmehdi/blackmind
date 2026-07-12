@@ -253,6 +253,35 @@ const TextBlockContent = React.memo(
   (prev, next) => prev.html === next.html && prev.editable === next.editable
 );
 
+const SkeletonBlock = ({ className }: { className: string }) => (
+  <div className={`animate-pulse rounded-xl bg-gemini-border/60 ${className}`} />
+);
+
+// Shown in the canvas while a brand-new course is generating and there's
+// nothing to render yet — the chat side already has its own "thinking"
+// indicator, but until now the canvas just sat on the static "ready to
+// create" screen with zero feedback that anything was happening.
+const CourseGenerationSkeleton = () => (
+  <div className="max-w-4xl mx-auto space-y-10" aria-busy="true" aria-label="Génération du cours en cours">
+    <SkeletonBlock className="h-56 md:h-72 w-full" />
+    <div className="space-y-4">
+      <SkeletonBlock className="h-10 w-2/3 mx-auto" />
+      <SkeletonBlock className="h-5 w-1/2 mx-auto" />
+    </div>
+    <div className="space-y-4">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="flex items-center gap-4 p-6 rounded-3xl border border-gemini-border bg-gemini-surface/50">
+          <SkeletonBlock className="w-12 h-12 shrink-0 rounded-2xl" />
+          <div className="flex-1 space-y-2">
+            <SkeletonBlock className={`h-4 ${i === 0 ? 'w-3/4' : i === 1 ? 'w-2/3' : 'w-1/2'}`} />
+            <SkeletonBlock className="h-3 w-1/3" />
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
 const CreatePage: React.FC<CreatePageProps> = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -616,10 +645,25 @@ const CreatePage: React.FC<CreatePageProps> = () => {
     try {
       if (isStorytellingMode) {
         const response = await generateStorytellingStructure(activePrompt, isThinkingMode, contentLanguage);
-        let responseData = JSON.parse(extractJson(response));
+        let responseData: any;
+        try {
+          responseData = JSON.parse(extractJson(response));
+        } catch {
+          // Same as the regular course path: casual small talk gets a plain-text
+          // reply instead of the required JSON schema — show it instead of
+          // failing with a generic error, and leave any open story untouched.
+          setMessages(prev => [...prev, { role: 'assistant', content: (response || '').trim() || t('create.generationError'), timestamp: new Date() }]);
+          setIsGenerating(false);
+          return;
+        }
+        if (!responseData || !Array.isArray(responseData.scenes) || responseData.scenes.length === 0) {
+          setMessages(prev => [...prev, { role: 'assistant', content: t('create.generationError'), timestamp: new Date() }]);
+          setIsGenerating(false);
+          return;
+        }
         setGeneratedCourse(null);
         setGeneratedStory(responseData);
-        setMessages(prev => [...prev, { role: 'assistant', content: t('create.storyGenerated', { count: responseData.modules.length }), suggestions: ["__ACTION_PREVIEW__"], timestamp: new Date() }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: t('create.storyGenerated', { count: responseData.scenes.length }), suggestions: ["__ACTION_PREVIEW__"], timestamp: new Date() }]);
       } else {
         // A course is already open in the canvas: treat this prompt as an
         // instruction to modify/extend it, not as a request to start a
@@ -2311,6 +2355,11 @@ const CreatePage: React.FC<CreatePageProps> = () => {
 
         <div className={`flex-1 overflow-y-auto p-4 md:p-16 bg-gemini-bg canvas-scrollbar relative ${view === 'chat' && !isPreviewMode ? 'hidden md:block' : 'block'}`} ref={canvasRef} onMouseUp={handleSelection}>
            {(!generatedCourse && !generatedStory) ? (
+             isGenerating ? (
+               <div className="animate-in fade-in duration-300">
+                 <CourseGenerationSkeleton />
+               </div>
+             ) : (
              <div className="h-full flex flex-col items-center justify-center text-center space-y-8 animate-in fade-in duration-500 max-w-3xl mx-auto px-4">
                <div className="w-24 h-24 bg-gemini-surface rounded-[2.5rem] flex items-center justify-center border border-gemini-border shadow-2xl">
                  <RabbitLogo className="w-12 h-12 text-gemini-accent" />
@@ -2343,6 +2392,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                  ))}
                </div>
              </div>
+             )
            ) : generatedStory ? (
              <div className="max-w-4xl mx-auto p-6 md:p-10 rounded-[3rem] border border-purple-500/20 bg-gradient-to-b from-purple-500/10 to-transparent space-y-12 shadow-2xl animate-in fade-in zoom-in-95 duration-500">
                <div className="space-y-6 text-center">
