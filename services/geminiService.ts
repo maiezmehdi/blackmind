@@ -11,6 +11,15 @@ const GEMINI_KEYS = [process.env.GEMINI_KEY_1, process.env.GEMINI_KEY_2, process
 // available and has a higher free daily quota (~200/day vs ~20).
 const GEMINI_MODEL = 'gemini-2.0-flash';
 
+// A key's free-tier text quota doesn't imply image quota — gemini-2.5-flash-image
+// is a separate, often zero-quota metric on a plain free-tier key (confirmed via
+// production 429s: "limit: 0, model: gemini-2.5-flash-preview-image" on keys that
+// generate text fine). GEMINI_IMAGE_KEY is a dedicated key/project actually
+// provisioned for image generation, tried first; the text keys remain as a
+// fallback after it in case it also runs out.
+const GEMINI_IMAGE_KEY = process.env.GEMINI_IMAGE_KEY || '';
+const GEMINI_IMAGE_KEYS = [GEMINI_IMAGE_KEY, ...GEMINI_KEYS].filter((k, i, arr) => k && arr.indexOf(k) === i) as string[];
+
 const QWEN_KEY = process.env.QWEN_API_KEY || '';
 const QWEN_BASE = (process.env.QWEN_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
 const QWEN_MODEL = process.env.QWEN_MODEL || 'openrouter/free';
@@ -178,16 +187,17 @@ const hfFluxImageOnce = async (prompt: string, aspectRatio: string): Promise<str
   );
 };
 
-// Image: try each Gemini key, then Hugging Face FLUX.1-dev if a key is
-// configured, then fall back to free keyless Pollinations. Forcing every
-// image to the same aspect ratio regardless of context (a cover vs. a small
-// in-lesson illustration) not only looks wrong once placed, it can visibly
-// warp/compress the model's own generated content when the subject doesn't
-// naturally suit that shape — so callers pass what they actually need.
+// Image: try the dedicated image key (if set) then each text key, then
+// Hugging Face FLUX.1-dev if configured, then fall back to Pollinations.
+// Forcing every image to the same aspect ratio regardless of context (a
+// cover vs. a small in-lesson illustration) not only looks wrong once
+// placed, it can visibly warp/compress the model's own generated content
+// when the subject doesn't naturally suit that shape — so callers pass what
+// they actually need.
 export const generateImage = async (prompt: string, aspectRatio: string = '4:3'): Promise<string> => {
-  for (let i = 0; i < GEMINI_KEYS.length; i++) {
+  for (let i = 0; i < GEMINI_IMAGE_KEYS.length; i++) {
     try {
-      return await geminiImageOnce(GEMINI_KEYS[i], prompt, aspectRatio);
+      return await geminiImageOnce(GEMINI_IMAGE_KEYS[i], prompt, aspectRatio);
     } catch (e: any) {
       console.warn(`[ai] Gemini image key ${i + 1} failed, trying next:`, e?.message || e);
     }

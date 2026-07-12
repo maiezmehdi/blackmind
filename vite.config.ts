@@ -17,6 +17,12 @@ export default defineConfig(({ mode }) => {
         'process.env.GEMINI_KEY_1': JSON.stringify(env.GEMINI_API_KEY_1 || env.Gemini || ''),
         'process.env.GEMINI_KEY_2': JSON.stringify(env.GEMINI_API_KEY_2 || env.Geminii || ''),
         'process.env.GEMINI_KEY_3': JSON.stringify(env.GEMINI_API_KEY_3 || env.Geminiii || ''),
+        // Optional — a separate key/project actually provisioned for image
+        // generation. A key's free-tier text quota doesn't imply image quota
+        // (gemini-2.5-flash-image is billed/limited separately); this is
+        // tried first for images, before the text keys above. Without it,
+        // images just try the text keys directly, as before.
+        'process.env.GEMINI_IMAGE_KEY': JSON.stringify(env.GEMINI_API_KEY || ''),
         // Qwen (OpenAI-compatible) — endpoint & model configurable.
         'process.env.QWEN_API_KEY': JSON.stringify(env.QWEN_API_KEY || ''),
         'process.env.QWEN_BASE_URL': JSON.stringify(env.QWEN_BASE_URL || 'https://openrouter.ai/api/v1'),
