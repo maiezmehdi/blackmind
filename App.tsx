@@ -79,9 +79,14 @@ const AppLayout = ({ children }: { children?: React.ReactNode }) => {
         />
       )}
 
-      {isMobile && isSidebarOpen && (
-        <div className="fixed inset-0 z-[60] flex">
-          <Sidebar isCollapsed={false} onToggle={() => setSidebarOpen(false)} onLinkClick={() => setSidebarOpen(false)} pathname={location.pathname} />
+      {isMobile && (
+        <div
+          className={`fixed inset-0 z-[60] flex transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+          aria-hidden={!isSidebarOpen}
+        >
+          <div className={`h-full transition-transform duration-300 ease-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            <Sidebar isCollapsed={false} onToggle={() => setSidebarOpen(false)} onLinkClick={() => setSidebarOpen(false)} pathname={location.pathname} />
+          </div>
           <div className="flex-1 bg-black/50 backdrop-blur-sm" onClick={() => setSidebarOpen(false)}></div>
         </div>
       )}
@@ -95,7 +100,9 @@ const AppLayout = ({ children }: { children?: React.ReactNode }) => {
         )}
 
         <div className={`flex-1 ${isFullHeightPage ? 'overflow-hidden flex flex-col' : 'overflow-y-auto no-scrollbar'}`}>
-          {children}
+          <div key={location.pathname} className={`animate-in fade-in slide-in-from-bottom-2 duration-300 ${isFullHeightPage ? 'h-full flex flex-col' : ''}`}>
+            {children}
+          </div>
         </div>
       </main>
 

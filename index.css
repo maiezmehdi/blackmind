@@ -78,6 +78,7 @@
 /* Application des variables de taille */
 html {
   font-size: calc(16px * var(--app-font-scale));
+  scroll-behavior: smooth;
 }
 body {
   background-color: var(--gemini-bg);

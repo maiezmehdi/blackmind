@@ -43,7 +43,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle, pathname, onLi
   const { currentUser } = useCourseContext();
 
   return (
-    <aside className={`h-full ${isCollapsed ? 'w-[72px]' : 'w-64'} transition-all duration-300 bg-gemini-sidebar border-r border-gemini-border p-4 flex flex-col gap-6 animate-in slide-in-from-left relative z-50 shadow-2xl`}>
+    <aside className={`h-full ${isCollapsed ? 'w-[72px]' : 'w-64'} transition-all duration-300 bg-gemini-sidebar border-r border-gemini-border p-4 flex flex-col gap-6 relative z-50 shadow-2xl`}>
       <div className={`flex items-center gap-2 px-2 py-2 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
         <div className={`flex items-center gap-2 ${isCollapsed ? '' : 'overflow-hidden'}`}>
           <div className="shrink-0 text-gemini-accent">
