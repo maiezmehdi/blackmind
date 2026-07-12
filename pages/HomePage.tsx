@@ -192,7 +192,7 @@ const HomePage: React.FC = () => {
         {/* Enhanced Floating Search Bar (Halo Effect) */}
         <div className="max-w-3xl mx-auto relative group/search z-10 px-4">
           {/* Glowing Halo */}
-          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-20 group-hover/search:opacity-60 blur-xl transition duration-500 group-hover/search:duration-200"></div>
+          <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-[32%] group-hover/search:opacity-60 blur-xl transition duration-500 group-hover/search:duration-200"></div>
           
           <div className="relative flex items-center bg-gemini-surface/90 backdrop-blur-xl border border-gemini-border rounded-full p-2 pl-6 shadow-2xl focus-within:border-indigo-500/50 transition-all duration-300 hover:scale-[1.01] focus-within:scale-[1.01]">
             <Search className="text-gemini-dim mr-4 shrink-0 group-focus-within/search:text-indigo-500 transition-colors" size={20} />
