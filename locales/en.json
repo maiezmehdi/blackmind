@@ -369,6 +369,9 @@
     "autoEmailYes": "Yes, send it",
     "autoEmailNo": "No thanks",
     "autoEmailDeclined": "No worries, your course is ready in the preview.",
+    "autoRecipientQuestion": "Who do you want to send it to?",
+    "autoSending": "Sending...",
+    "autoMailtoFallback": "A draft opened in your mail app.",
     "addArModelTitle": "Add a 3D Model",
     "templates": {
       "chapters5Title": "5-chapter structured course",

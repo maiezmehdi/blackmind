@@ -390,6 +390,9 @@
     "autoEmailYes": "Oui, envoyer",
     "autoEmailNo": "Non merci",
     "autoEmailDeclined": "Pas de souci, ton cours est prêt dans l'aperçu.",
+    "autoRecipientQuestion": "À qui veux-tu l'envoyer ?",
+    "autoSending": "Envoi en cours...",
+    "autoMailtoFallback": "Un brouillon s'est ouvert dans ta messagerie.",
     "addArModelTitle": "Ajouter un Modèle 3D",
     "templates": {
       "chapters5Title": "Cours structuré 5 chapitres",
