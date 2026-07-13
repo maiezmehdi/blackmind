@@ -375,6 +375,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [isChatOptionsOpen, setIsChatOptionsOpen] = useState(false);
   const [isStorytellingMode, setIsStorytellingMode] = useState(false);
+  const [isAutoMode, setIsAutoMode] = useState(false);
   const [contentLanguage, setContentLanguage] = useState("fr");
   const [generatedStory, setGeneratedStory] = useState<any>(null);
 
@@ -732,6 +733,14 @@ const CreatePage: React.FC<CreatePageProps> = () => {
           setGeneratedCourse(newCourse);
           setIsPublished(false);
           setMessages(prev => [...prev, { role: 'assistant', content: commentary, suggestions: [...(suggestions || []), "__ACTION_PREVIEW__"], timestamp: new Date() }]);
+
+          // Mode automatisé: once the course exists, proactively ask whether
+          // to send it — a second chat turn with its own Yes/No chips,
+          // reusing the same suggestion-chip mechanism as everything else
+          // instead of a separate wizard/modal component.
+          if (isAutoMode) {
+            setMessages(prev => [...prev, { role: 'assistant', content: t('create.autoAskEmail'), suggestions: ['__AUTO_EMAIL_YES__', '__AUTO_EMAIL_NO__'], timestamp: new Date() }]);
+          }
 
           // Generate the course cover right away from the generated content
           // (async, non-blocking — the placeholder stays until the image lands).
@@ -2256,6 +2265,28 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                               </div>
                             );
                           }
+                          if (suggestion === '__AUTO_EMAIL_YES__') {
+                            return (
+                              <button
+                                key={sIdx}
+                                onClick={() => { setEmailSentSuccess(false); setIsEmailModalOpen(true); }}
+                                className="px-6 py-2.5 bg-amber-500 text-white rounded-full text-[10px] font-bold tracking-wider hover:scale-105 transition-all shadow-lg whitespace-nowrap flex items-center gap-2"
+                              >
+                                <Mail size={14} /> {t('create.autoEmailYes')}
+                              </button>
+                            );
+                          }
+                          if (suggestion === '__AUTO_EMAIL_NO__') {
+                            return (
+                              <button
+                                key={sIdx}
+                                onClick={() => setMessages(prev => [...prev, { role: 'assistant', content: t('create.autoEmailDeclined'), timestamp: new Date() }])}
+                                className="px-6 py-2.5 bg-gemini-surface border border-gemini-border rounded-full text-[10px] font-bold tracking-wider text-gemini-dim hover:text-gemini-text transition-all shadow-sm whitespace-nowrap"
+                              >
+                                {t('create.autoEmailNo')}
+                              </button>
+                            );
+                          }
                           return (
                           <button
                             key={sIdx}
@@ -2322,6 +2353,17 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                     </div>
                   </div>
                 )}
+                {isAutoMode && (
+                  <div className="flex items-center gap-2 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 text-[10px] font-bold uppercase tracking-widest border border-amber-500/20 flex items-center gap-1.5 shadow-sm">
+                      <Zap size={12} />
+                      {t('create.autoModeLabel')}
+                      <button onClick={() => setIsAutoMode(false)} className="ml-1 hover:text-amber-300 hover:bg-amber-500/20 rounded-full p-0.5 transition-colors">
+                        <X size={10} />
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div className="bg-gemini-surface border border-gemini-border rounded-2xl px-3 py-2 md:px-4 md:py-3 flex items-center gap-2 focus-within:border-gemini-dim transition-all duration-300 shadow-2xl relative min-h-[52px] max-w-4xl mx-auto w-full">
                   <textarea ref={promptTextareaRef} rows={1} value={prompt} onChange={(e) => {
                     setPrompt(e.target.value);
@@ -2352,17 +2394,26 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                               <button onClick={() => setContentLanguage('en')} className={`px-2 py-1 text-[10px] font-bold rounded ${contentLanguage === 'en' ? 'bg-gemini-accent text-gemini-bg' : 'text-gemini-dim hover:text-gemini-accent'}`}>EN</button>
                             </div>
                           </div>
-                          <button 
-
-                            onClick={() => { setIsStorytellingMode(!isStorytellingMode); setIsChatOptionsOpen(false); }} 
-                            className={`p-2 rounded-lg transition-colors flex items-center gap-3 ${isStorytellingMode ? 'text-purple-500 bg-purple-500/10' : 'text-gemini-dim hover:bg-gemini-bg hover:text-purple-500'}`}
-                            title="Storytelling Mode"
+                          <div
+                            className="p-2 rounded-lg flex items-center gap-3 text-gemini-dim/40 cursor-not-allowed group relative"
+                            title={t('create.storytellingComingSoon')}
                           >
                             <BookOpen size={16} />
                             <span className="text-xs font-medium whitespace-nowrap">Mode Storytelling</span>
+                            <span className="absolute inset-0 flex items-center justify-center rounded-lg bg-gemini-surface/95 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-bold uppercase tracking-widest text-gemini-dim">
+                              {t('create.storytellingComingSoon')}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => { setIsAutoMode(!isAutoMode); setIsChatOptionsOpen(false); }}
+                            className={`p-2 rounded-lg transition-colors flex items-center gap-3 ${isAutoMode ? 'text-amber-500 bg-amber-500/10' : 'text-gemini-dim hover:bg-gemini-bg hover:text-amber-500'}`}
+                            title={t('create.autoModeLabel')}
+                          >
+                            <Zap size={16} />
+                            <span className="text-xs font-medium whitespace-nowrap">{t('create.autoModeLabel')}</span>
                           </button>
-                          <button 
-                            onClick={() => { setIsGoogleImportModalOpen(true); setIsChatOptionsOpen(false); }} 
+                          <button
+                            onClick={() => { setIsGoogleImportModalOpen(true); setIsChatOptionsOpen(false); }}
                             className="p-2 text-gemini-dim hover:bg-gemini-bg hover:text-gemini-accent rounded-lg transition-colors flex items-center gap-3"
                             title="Importer depuis Google Workspace"
                           >

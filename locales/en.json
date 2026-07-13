@@ -363,6 +363,12 @@
     "listenToMessage": "Listen to the message",
     "copyMessage": "Copy the text",
     "moreOptions": "More options",
+    "storytellingComingSoon": "Coming soon",
+    "autoModeLabel": "Automated Mode",
+    "autoAskEmail": "The course is ready! Want me to send it by email?",
+    "autoEmailYes": "Yes, send it",
+    "autoEmailNo": "No thanks",
+    "autoEmailDeclined": "No worries, your course is ready in the preview.",
     "addArModelTitle": "Add a 3D Model",
     "templates": {
       "chapters5Title": "5-chapter structured course",

@@ -384,6 +384,12 @@
     "listenToMessage": "Écouter le message",
     "copyMessage": "Copier le texte",
     "moreOptions": "Options supplémentaires",
+    "storytellingComingSoon": "Bientôt disponible",
+    "autoModeLabel": "Mode Automatisé",
+    "autoAskEmail": "Le cours est prêt ! Veux-tu que je l'envoie par email ?",
+    "autoEmailYes": "Oui, envoyer",
+    "autoEmailNo": "Non merci",
+    "autoEmailDeclined": "Pas de souci, ton cours est prêt dans l'aperçu.",
     "addArModelTitle": "Ajouter un Modèle 3D",
     "templates": {
       "chapters5Title": "Cours structuré 5 chapitres",
