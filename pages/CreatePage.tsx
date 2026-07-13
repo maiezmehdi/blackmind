@@ -2386,14 +2386,6 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                       </button>
                       {isChatOptionsOpen && (
                         <div className="absolute bottom-full right-0 mb-2 bg-gemini-surface border border-gemini-border rounded-xl shadow-lg p-2 flex flex-col gap-1 z-50 animate-in fade-in zoom-in-95 duration-200">
-                          
-                          <div className="px-2 py-1.5 flex items-center justify-between border-b border-gemini-border/50 mb-1">
-                            <span className="text-[10px] font-bold text-gemini-dim uppercase tracking-widest">{t('settings.language')} du contenu</span>
-                            <div className="flex gap-1">
-                              <button onClick={() => setContentLanguage('fr')} className={`px-2 py-1 text-[10px] font-bold rounded ${contentLanguage === 'fr' ? 'bg-gemini-accent text-gemini-bg' : 'text-gemini-dim hover:text-gemini-accent'}`}>FR</button>
-                              <button onClick={() => setContentLanguage('en')} className={`px-2 py-1 text-[10px] font-bold rounded ${contentLanguage === 'en' ? 'bg-gemini-accent text-gemini-bg' : 'text-gemini-dim hover:text-gemini-accent'}`}>EN</button>
-                            </div>
-                          </div>
                           <div
                             className="p-2 rounded-lg flex items-center gap-3 text-gemini-dim/40 cursor-not-allowed group relative"
                             title={t('create.storytellingComingSoon')}
