@@ -429,7 +429,7 @@
     "suggestedContacts": "Contacts suggérés",
     "currentCollaborators": "Collaborateurs actuels",
     "emailTitle": "Envoyer par email",
-    "emailDesc": "Nous essaierons d'envoyer le cours directement ; si ce n'est pas possible, un brouillon s'ouvrira dans votre messagerie.",
+    "emailDesc": "Le cours sera envoyé directement, avec un PDF du contenu complet en pièce jointe.",
     "emailToLabel": "Destinataire",
     "emailNoteLabel": "Message (optionnel)",
     "emailNotePlaceholder": "Ajoutez un mot pour accompagner le cours...",

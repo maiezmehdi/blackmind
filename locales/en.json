@@ -408,7 +408,7 @@
     "suggestedContacts": "Suggested contacts",
     "currentCollaborators": "Current collaborators",
     "emailTitle": "Send by email",
-    "emailDesc": "We'll try to send the course directly; if that's not possible, a draft will open in your mail app instead.",
+    "emailDesc": "The course will be sent directly, with a PDF of the full content attached.",
     "emailToLabel": "Recipient",
     "emailNoteLabel": "Message (optional)",
     "emailNotePlaceholder": "Add a note to go with the course...",

@@ -96,7 +96,7 @@ import {
 } from 'lucide-react';
 import { marked } from 'marked';
 import { generateCourseStructure, editCourseStructure, generateStorytellingStructure, refineContent, generateAiBlock, extractJson, ChatTurn } from '../services/geminiService';
-import { exportCoursePdf, exportCourseDocx } from '../services/exportService';
+import { exportCoursePdf, exportCourseDocx, buildCoursePdfBlob, slugify } from '../services/exportService';
 import { makeGradientCover } from '../services/coverImage';
 import { downloadMedia, mediaFilename } from '../services/download';
 import { isGoogleConfigured, isGoogleConnected, connectGoogle, getAccessToken } from '../services/googleAuth';
@@ -227,10 +227,11 @@ type AutoModeStep = 'ask' | 'recipient' | 'sending' | 'sent' | 'error' | 'declin
 const AutoModeEmailCard: React.FC<{
   courseTitle: string;
   courseDescription: string;
-  modules?: { title: string; lessonCount: number }[];
+  courseCategory?: string;
+  modules?: Module[];
   contacts: { id: string; name: string; email: string; initials: string; color?: string }[];
   t: (key: string, vars?: Record<string, any>) => string;
-}> = ({ courseTitle, courseDescription, modules, contacts, t }) => {
+}> = ({ courseTitle, courseDescription, courseCategory, modules, contacts, t }) => {
   const [step, setStep] = useState<AutoModeStep>('ask');
   // Pre-filled rather than blank — a suggested contact and a draft note the
   // user can edit, clear, or send as-is.
@@ -251,13 +252,18 @@ const AutoModeEmailCard: React.FC<{
       eyebrow: t('create.emailEyebrow'),
       footer: t('create.emailFooter'),
       programLabel: t('create.emailProgramLabel'),
-      modules: modules?.map(m => ({ title: m.title, meta: m.lessonCount === 1 ? t('create.emailLessonCountOne') : t('create.emailLessonCountMany', { count: m.lessonCount }) })),
+      modules: modules?.map(m => {
+        const lessonCount = m.lessons?.length || 0;
+        return { title: m.title, meta: lessonCount === 1 ? t('create.emailLessonCountOne') : t('create.emailLessonCountMany', { count: lessonCount }) };
+      }),
     });
     try {
+      const pdfBlob = await buildCoursePdfBlob({ title: courseTitle, description: courseDescription, category: courseCategory, modules: modules || [] } as Course);
+      const pdfBase64 = await blobToBase64(pdfBlob);
       const res = await fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: recipient.trim(), subject, text, html }),
+        body: JSON.stringify({ to: recipient.trim(), subject, text, html, attachments: [{ filename: `${slugify(courseTitle)}.pdf`, content: pdfBase64 }] }),
       });
       if (res.ok) { setStep('sent'); return; }
       const data = await res.json().catch(() => ({}));
@@ -454,10 +460,12 @@ const AutoModeWizardCard: React.FC<{
           : undefined,
       });
       try {
+        const pdfBlob = await buildCoursePdfBlob({ title: courseData.title, description: courseData.description, category: courseData.category, modules: courseData.modules } as Course);
+        const pdfBase64 = await blobToBase64(pdfBlob);
         const res = await fetch('/api/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: recipient.trim(), subject, text, html }),
+          body: JSON.stringify({ to: recipient.trim(), subject, text, html, attachments: [{ filename: `${slugify(courseData.title)}.pdf`, content: pdfBase64 }] }),
         });
         if (res.ok) { setSendResult('sent'); setStep('done'); return; }
         const data = await res.json().catch(() => ({}));
@@ -679,6 +687,17 @@ const generateWithRetry = async (genFn: () => Promise<string>): Promise<AiParseR
   if (first.kind !== 'broken') return first;
   return parseAiResponse(await genFn());
 };
+
+// Resend's attachment API wants raw base64 (no data: URI prefix) — strip
+// everything up to and including the first comma of the data: URL that
+// FileReader.readAsDataURL produces.
+const blobToBase64 = (blob: Blob): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve((reader.result as string).split(',')[1] || '');
+    reader.onerror = () => reject(new Error('failed to read blob'));
+    reader.readAsDataURL(blob);
+  });
 
 // Every keystroke of unrelated canvas UI state (toolbar position, selection
 // context, hover menus...) re-renders the whole CreatePage tree. Without
@@ -1190,7 +1209,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
           setGeneratedCourse(updatedCourse);
           setMessages(prev => [...prev, { role: 'assistant', content: commentary, suggestions: [...(suggestions || []), "__ACTION_PREVIEW__"], timestamp: new Date() }]);
           if (isAutoMode) {
-            setMessages(prev => [...prev, { role: 'assistant', content: '', suggestions: ['__AUTO_MODE_CARD__'], autoModeCourse: { title: updatedCourse.title, description: updatedCourse.description, modules: (updatedCourse.modules || []).map(m => ({ title: m.title, lessonCount: (m.lessons || []).length })) }, timestamp: new Date() }]);
+            setMessages(prev => [...prev, { role: 'assistant', content: '', suggestions: ['__AUTO_MODE_CARD__'], autoModeCourse: { title: updatedCourse.title, description: updatedCourse.description, category: updatedCourse.category, modules: updatedCourse.modules }, timestamp: new Date() }]);
           }
         } else {
           applyNewCourse(courseData, activePrompt);
@@ -2319,10 +2338,12 @@ const CreatePage: React.FC<CreatePageProps> = () => {
               setIsSendingEmail(true);
               setEmailSendError('');
               try {
+                const pdfBlob = await buildCoursePdfBlob(generatedCourse);
+                const pdfBase64 = await blobToBase64(pdfBlob);
                 const res = await fetch('/api/send-email', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ to, subject, text, html }),
+                  body: JSON.stringify({ to, subject, text, html, attachments: [{ filename: `${slugify(generatedCourse.title)}.pdf`, content: pdfBase64 }] }),
                 });
                 if (res.ok) {
                   setIsSendingEmail(false);
@@ -2755,6 +2776,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                      <AutoModeEmailCard
                        courseTitle={m.autoModeCourse?.title || ''}
                        courseDescription={m.autoModeCourse?.description || ''}
+                       courseCategory={m.autoModeCourse?.category}
                        modules={m.autoModeCourse?.modules}
                        contacts={allSuggestedContacts}
                        t={t}

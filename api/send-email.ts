@@ -14,14 +14,21 @@ export default async function handler(req: Request): Promise<Response> {
     return new Response(JSON.stringify({ error: 'not_configured' }), { status: 501 });
   }
 
-  let body: { to?: string; subject?: string; text?: string; html?: string };
+  let body: {
+    to?: string;
+    subject?: string;
+    text?: string;
+    html?: string;
+    // Resend's attachment shape: content is base64 (no data: URI prefix).
+    attachments?: { filename: string; content: string }[];
+  };
   try {
     body = await req.json();
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400 });
   }
 
-  const { to, subject, text, html } = body;
+  const { to, subject, text, html, attachments } = body;
   if (!to || !subject) {
     return new Response(JSON.stringify({ error: 'Missing to/subject' }), { status: 400 });
   }
@@ -41,9 +48,10 @@ export default async function handler(req: Request): Promise<Response> {
         to: [to],
         subject,
         text,
-        // html is optional — callers that don't build a styled template
-        // still work with a plain-text-only email, same as before.
+        // html/attachments are optional — callers that don't build a styled
+        // template or don't attach a file still work as before.
         ...(html ? { html } : {}),
+        ...(attachments && attachments.length > 0 ? { attachments } : {}),
       }),
     });
 

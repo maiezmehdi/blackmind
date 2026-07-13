@@ -39,7 +39,10 @@ const stripBullet = (l: string) => l.replace(/^\s*([-*]|\d+\.)\s+/, '');
 /* PDF — polished layout with jsPDF text API                          */
 /* ================================================================== */
 
-export const exportCoursePdf = async (course: Course): Promise<void> => {
+// Builds the PDF document without triggering a browser download or save —
+// reused both by exportCoursePdf (local download) and the email-attachment
+// path, same pattern as buildCourseDocxBlob below.
+const buildCoursePdfDoc = async (course: Course) => {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
 
@@ -212,7 +215,17 @@ export const exportCoursePdf = async (course: Course): Promise<void> => {
     }
   }
 
+  return doc;
+};
+
+export const exportCoursePdf = async (course: Course): Promise<void> => {
+  const doc = await buildCoursePdfDoc(course);
   doc.save(`${slugify(course.title)}.pdf`);
+};
+
+export const buildCoursePdfBlob = async (course: Course): Promise<Blob> => {
+  const doc = await buildCoursePdfDoc(course);
+  return doc.output('blob');
 };
 
 /* ================================================================== */
