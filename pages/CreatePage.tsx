@@ -337,6 +337,8 @@ const CreatePage: React.FC<CreatePageProps> = () => {
   const [sharingWorkspaceId, setSharingWorkspaceId] = useState<string | null>(null);
   const [shareSuccessId, setShareSuccessId] = useState<string | null>(null);
   const [inviteSuccessEmail, setInviteSuccessEmail] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailSentSuccess, setEmailSentSuccess] = useState(false);
 
   const [inviteEmail, setInviteEmail] = useState('');
   const [wsSearchTerm, setWsSearchTerm] = useState('');
@@ -1801,16 +1803,38 @@ const CreatePage: React.FC<CreatePageProps> = () => {
       {/* SEND BY EMAIL MODAL */}
       {isEmailModalOpen && generatedCourse && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsEmailModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => !isSendingEmail && setIsEmailModalOpen(false)}></div>
           <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               const fd = new FormData(e.currentTarget);
               const to = String(fd.get('to') || '').trim();
               const note = String(fd.get('note') || '').trim();
               const subject = t('create.emailSubject', { title: generatedCourse.title });
               const bodyLines = [note, '', t('create.emailBodyIntro', { title: generatedCourse.title }), generatedCourse.description || ''].filter(Boolean);
-              const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join('\n'))}`;
+              const text = bodyLines.join('\n');
+
+              setIsSendingEmail(true);
+              try {
+                const res = await fetch('/api/send-email', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ to, subject, text }),
+                });
+                if (res.ok) {
+                  setIsSendingEmail(false);
+                  setEmailSentSuccess(true);
+                  setTimeout(() => { setIsEmailModalOpen(false); setEmailSentSuccess(false); }, 1800);
+                  return;
+                }
+              } catch {
+                // network error / API route unreachable — fall through to mailto below
+              }
+              // Not configured (no RESEND_API_KEY), recipient rejected by the
+              // resend.dev test domain, or any other failure: fall back to a
+              // pre-filled mailto: draft rather than a dead end.
+              setIsSendingEmail(false);
+              const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
               window.location.href = mailto;
               setIsEmailModalOpen(false);
             }}
@@ -1818,28 +1842,38 @@ const CreatePage: React.FC<CreatePageProps> = () => {
           >
             <div className="p-8 border-b border-gemini-border flex items-center justify-between">
               <h3 className="text-xl font-bold text-gemini-text font-outfit">{t('create.emailTitle')}</h3>
-              <button type="button" onClick={() => setIsEmailModalOpen(false)} className="p-2 text-gemini-dim hover:text-gemini-text transition-colors"><X size={20}/></button>
+              <button type="button" disabled={isSendingEmail} onClick={() => setIsEmailModalOpen(false)} className="p-2 text-gemini-dim hover:text-gemini-text transition-colors disabled:opacity-40"><X size={20}/></button>
             </div>
-            <div className="p-8 space-y-4">
-              <div className="p-4 bg-gemini-accent/5 border border-gemini-accent/10 rounded-2xl flex items-start gap-3">
-                <Mail className="text-gemini-accent shrink-0 mt-0.5" size={18} />
-                <p className="text-xs text-gemini-dim leading-relaxed">{t('create.emailDesc')}</p>
+            {emailSentSuccess ? (
+              <div className="p-12 flex flex-col items-center justify-center gap-3 text-center">
+                <CheckCircle2 size={40} className="text-gemini-accent" />
+                <p className="text-sm text-gemini-text font-bold">{t('create.emailSentSuccess')}</p>
               </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim ml-1">{t('create.emailToLabel')}</label>
-                <input name="to" type="email" required placeholder="ami@example.com" className="w-full bg-gemini-bg border border-gemini-border rounded-2xl px-5 py-4 text-sm outline-none focus:border-gemini-accent transition-all placeholder:text-gemini-dim/50 text-gemini-text" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim ml-1">{t('create.emailNoteLabel')}</label>
-                <textarea name="note" rows={3} placeholder={t('create.emailNotePlaceholder')} className="w-full bg-gemini-bg border border-gemini-border rounded-2xl px-5 py-4 text-sm outline-none focus:border-gemini-accent transition-all placeholder:text-gemini-dim/50 text-gemini-text resize-none" />
-              </div>
-            </div>
-            <div className="p-8 bg-gemini-bg/30 border-t border-gemini-border flex gap-3">
-              <button type="button" onClick={() => setIsEmailModalOpen(false)} className="flex-1 px-6 py-4 border border-gemini-border rounded-2xl text-[10px] font-bold uppercase tracking-widest text-gemini-dim hover:text-gemini-accent transition-all">{t('common.cancel')}</button>
-              <button type="submit" className="flex-1 px-6 py-4 bg-gemini-accent text-gemini-bg rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2">
-                <Mail size={16} /> {t('create.emailSendBtn')}
-              </button>
-            </div>
+            ) : (
+              <>
+                <div className="p-8 space-y-4">
+                  <div className="p-4 bg-gemini-accent/5 border border-gemini-accent/10 rounded-2xl flex items-start gap-3">
+                    <Mail className="text-gemini-accent shrink-0 mt-0.5" size={18} />
+                    <p className="text-xs text-gemini-dim leading-relaxed">{t('create.emailDesc')}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim ml-1">{t('create.emailToLabel')}</label>
+                    <input name="to" type="email" required disabled={isSendingEmail} placeholder="ami@example.com" className="w-full bg-gemini-bg border border-gemini-border rounded-2xl px-5 py-4 text-sm outline-none focus:border-gemini-accent transition-all placeholder:text-gemini-dim/50 text-gemini-text disabled:opacity-50" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim ml-1">{t('create.emailNoteLabel')}</label>
+                    <textarea name="note" rows={3} disabled={isSendingEmail} placeholder={t('create.emailNotePlaceholder')} className="w-full bg-gemini-bg border border-gemini-border rounded-2xl px-5 py-4 text-sm outline-none focus:border-gemini-accent transition-all placeholder:text-gemini-dim/50 text-gemini-text resize-none disabled:opacity-50" />
+                  </div>
+                </div>
+                <div className="p-8 bg-gemini-bg/30 border-t border-gemini-border flex gap-3">
+                  <button type="button" disabled={isSendingEmail} onClick={() => setIsEmailModalOpen(false)} className="flex-1 px-6 py-4 border border-gemini-border rounded-2xl text-[10px] font-bold uppercase tracking-widest text-gemini-dim hover:text-gemini-accent transition-all disabled:opacity-40">{t('common.cancel')}</button>
+                  <button type="submit" disabled={isSendingEmail} className="flex-1 px-6 py-4 bg-gemini-accent text-gemini-bg rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 disabled:opacity-60 disabled:hover:scale-100">
+                    {isSendingEmail ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
+                    {t('create.emailSendBtn')}
+                  </button>
+                </div>
+              </>
+            )}
           </form>
         </div>
       )}
@@ -2117,7 +2151,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
               <div className="py-1">
                 <button onClick={() => { setIsShareModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-dim hover:text-gemini-text"><Briefcase size={16} /> {t('create.menuShare')}</button>
                 <button onClick={() => { setIsTeamModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-dim hover:text-gemini-text"><Users size={16} /> {t('create.menuInvite')}</button>
-                <button onClick={() => { setIsEmailModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-dim hover:text-gemini-text"><Mail size={16} /> {t('create.menuEmail')}</button>
+                <button onClick={() => { setEmailSentSuccess(false); setIsEmailModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-dim hover:text-gemini-text"><Mail size={16} /> {t('create.menuEmail')}</button>
               </div>
               <div className="py-1">
                  <button onClick={() => { setIsDownloadModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-gemini-dim hover:text-gemini-text group relative">
