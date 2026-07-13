@@ -776,7 +776,7 @@ const CourseGenerationSkeleton = () => (
 const CreatePage: React.FC<CreatePageProps> = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { addCourse, updateCourse, deleteCourse, courses, workspaces, sendInvitation, shareCourse, sellCourse, currentUser, t } = useCourseContext();
+  const { addCourse, updateCourse, deleteCourse, courses, workspaces, sendInvitation, shareCourse, sellCourse, currentUser, t, language } = useCourseContext();
   const [view, setView] = useState<'chat' | 'preview'>('chat');
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [prompt, setPrompt] = useState('');
@@ -868,7 +868,12 @@ const CreatePage: React.FC<CreatePageProps> = () => {
   const [isChatOptionsOpen, setIsChatOptionsOpen] = useState(false);
   const [isStorytellingMode, setIsStorytellingMode] = useState(false);
   const [isAutoMode, setIsAutoMode] = useState(false);
-  const [contentLanguage, setContentLanguage] = useState("fr");
+  // Defaults to the app's own UI language setting (Settings > Language) —
+  // was previously hardcoded to "fr" regardless of it, so an English-UI
+  // user still got course structure/commentary generated in French by
+  // default. Kept in sync if the setting changes without a full remount.
+  const [contentLanguage, setContentLanguage] = useState<'fr' | 'en'>(language);
+  useEffect(() => { setContentLanguage(language); }, [language]);
   const [generatedStory, setGeneratedStory] = useState<any>(null);
 
   // Refinement Dropdown State
