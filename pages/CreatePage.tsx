@@ -937,6 +937,18 @@ const CreatePage: React.FC<CreatePageProps> = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
+  // Grows the textarea to fit its content on every change to `prompt`, not
+  // just keystrokes — voice dictation, suggestion chips, and the ?prompt=
+  // prefill above all call setPrompt() directly, bypassing the textarea's
+  // own onChange, so they'd otherwise leave it at its fixed 1-row height
+  // with an internal scrollbar instead of growing.
+  useEffect(() => {
+    const el = promptTextareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }, [prompt]);
+
   useEffect(() => {
     if (canvasRef.current && (window as any).renderMathInElement) {
       setTimeout(() => {
@@ -2924,11 +2936,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                   </div>
                 )}
                 <div className="bg-gemini-surface border border-gemini-border rounded-[2rem] px-3 py-2 md:px-4 md:py-3 flex items-center gap-2 focus-within:border-gemini-dim transition-all duration-300 shadow-2xl relative min-h-[52px] max-w-4xl mx-auto w-full">
-                  <textarea ref={promptTextareaRef} rows={1} value={prompt} onChange={(e) => {
-                    setPrompt(e.target.value);
-                    e.target.style.height = 'auto';
-                    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-                  }} placeholder={t('create.placeholder')} className="bg-transparent border-none outline-none flex-1 py-1 text-sm resize-none text-gemini-text placeholder:text-gemini-dim/50 my-auto" onKeyDown={(e) => {
+                  <textarea ref={promptTextareaRef} rows={1} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={t('create.placeholder')} className="bg-transparent border-none outline-none flex-1 py-1 text-sm resize-none text-gemini-text placeholder:text-gemini-dim/50 my-auto" onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
                       handleGenerateCourse();

@@ -99,7 +99,7 @@ const CourseCard = ({ course, onDeleteRequest, labelStart, labelContinue, t, to 
 
 const HomePage: React.FC = () => {
   const { language, t } = useLanguage();
-  const { courses, deleteCourse } = useCourseContext();
+  const { courses, deleteCourse, marketplaceCourses } = useCourseContext();
   const navigate = useNavigate();
   const heroRef = useRef<HTMLDivElement>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -112,11 +112,6 @@ const HomePage: React.FC = () => {
     navigate(text ? `/create?prompt=${encodeURIComponent(text)}` : '/create');
   };
 
-  // Discovery cards represent courses that don't exist yet — clicking one
-  // starts a generation for that topic instead of leading to a dead link.
-  const suggestLink = (title: string) =>
-    `/create?prompt=${encodeURIComponent(t('home.suggestPrefill', { title }))}`;
-
   const categories = [
     { key: 'dev', icon: Code, label: t('categories.dev') },
     { key: 'design', icon: Palette, label: t('categories.design') },
@@ -126,27 +121,14 @@ const HomePage: React.FC = () => {
     { key: 'academic', icon: Book, label: t('categories.academic') },
   ];
 
-  // Mock AI Suggestions tailored to the user profile
-  const suggestions = [
-    {
-      id: 'ai-1',
-      title: 'Cognitive Architecture 101',
-      author: 'Blackmind Intelligence',
-      category: 'Science',
-      image: 'https://images.unsplash.com/photo-1559757175-5b2b0e8b2b73?auto=format&fit=crop&q=80&w=600',
-      progress: 0,
-      aiReason: t('categories.science')
-    },
-    {
-      id: 'ai-2',
-      title: 'UX Writing for AI Interfaces',
-      author: 'Design Systems',
-      category: 'Design',
-      image: 'https://images.unsplash.com/photo-1586717791821-3f44a5638d48?auto=format&fit=crop&q=80&w=600',
-      progress: 0,
-      aiReason: t('categories.design')
-    }
-  ];
+  // Real courses from the marketplace catalog (they have actual content via
+  // createBasicModules and support the existing remix flow in LearnPage) —
+  // not decorative cards pointing at a fresh AI generation. "Because you
+  // like X" just reflects the course's own category.
+  const suggestions = marketplaceCourses.slice(0, 2).map(c => ({ ...c, aiReason: c.category }));
+  const popularCourses = [...marketplaceCourses]
+    .sort((a, b) => (b.students || 0) - (a.students || 0))
+    .slice(0, 3);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -274,7 +256,6 @@ const HomePage: React.FC = () => {
                 </div>
                 <CourseCard
                   course={course}
-                  to={suggestLink(course.title)}
                   labelContinue={t('home.continue')}
                   labelStart={t('home.start')}
                   t={t}
@@ -312,9 +293,9 @@ const HomePage: React.FC = () => {
           <button onClick={() => navigate('/marketplace')} className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim hover:text-gemini-accent transition-colors">{t('home.seeAll')}</button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80">
-          <CourseCard t={t} to={suggestLink('Maîtriser le Prompt Engineering')} labelContinue={t('home.continue')} labelStart={t('home.start')} course={{id: 'p1', title: 'Maîtriser le Prompt Engineering', author: 'Gemini Expert', category: 'IA', progress: 0}} />
-          <CourseCard t={t} to={suggestLink('Design Thinking pour Développeurs')} labelContinue={t('home.continue')} labelStart={t('home.start')} course={{id: 'p2', title: 'Design Thinking pour Développeurs', author: 'UX Collective', category: 'Design', progress: 0}} />
-          <CourseCard t={t} to={suggestLink('Introduction à React 19')} labelContinue={t('home.continue')} labelStart={t('home.start')} course={{id: 'p3', title: 'Introduction à React 19', author: 'Frontend Masters', category: 'Dev', progress: 0}} />
+          {popularCourses.map(course => (
+            <CourseCard key={course.id} t={t} labelContinue={t('home.continue')} labelStart={t('home.start')} course={course} />
+          ))}
         </div>
       </section>
 
