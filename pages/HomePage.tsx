@@ -26,7 +26,7 @@ const ArIcon = ({ size = 12, className = "" }: { size?: number, className?: stri
   </svg>
 );
 
-const CourseCard = ({ course, onDeleteRequest, labelStart, labelContinue, t, to }: any) => {
+const CourseCard = ({ course, onDeleteRequest, labelStart, labelContinue, t, to, onOpen }: any) => {
   // Check if any lesson contains an AR block
   const hasAr = course.modules?.some((m: any) =>
     m.lessons?.some((l: any) =>
@@ -41,6 +41,7 @@ const CourseCard = ({ course, onDeleteRequest, labelStart, labelContinue, t, to 
   return (
     <Link
       to={to || `/learn/${course.id}`}
+      onClick={onOpen ? (e: React.MouseEvent) => { e.preventDefault(); onOpen(course); } : undefined}
       className="glass-card rounded-2xl overflow-hidden group hover:bg-gemini-surface transition-all duration-300 relative border border-gemini-border bg-gemini-surface/50 shadow-sm flex flex-col h-full"
     >
       <div className="h-40 overflow-hidden relative">
@@ -99,12 +100,25 @@ const CourseCard = ({ course, onDeleteRequest, labelStart, labelContinue, t, to 
 
 const HomePage: React.FC = () => {
   const { language, t } = useLanguage();
-  const { courses, deleteCourse, marketplaceCourses } = useCourseContext();
+  const { courses, deleteCourse, marketplaceCourses, buyCourse } = useCourseContext();
   const navigate = useNavigate();
   const heroRef = useRef<HTMLDivElement>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [heroPrompt, setHeroPrompt] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
+
+  // Marketplace-catalog cards (AI Suggestions / Popular) reference ids that
+  // only exist in marketplaceCourses — LearnPage only looks courses up in
+  // the user's own `courses`, so a plain <Link to="/learn/:id"> for these
+  // would land on an unknown id and bounce straight back to "/". Clone it
+  // into the user's library first (same free, no-payment-gate clone that
+  // Marketplace's own "buy" button already does), then open the clone —
+  // or just open it directly if the user already grabbed it before.
+  const openSuggestedCourse = (course: any) => {
+    const owned = courses.find(c => c.title === course.title);
+    const target = owned || buyCourse(course);
+    navigate(`/learn/${target.id}`);
+  };
 
   // Send the user's typed intent to the Create page (pre-fills the AI chat).
   const goCreate = (prompt?: string) => {
@@ -256,6 +270,7 @@ const HomePage: React.FC = () => {
                 </div>
                 <CourseCard
                   course={course}
+                  onOpen={openSuggestedCourse}
                   labelContinue={t('home.continue')}
                   labelStart={t('home.start')}
                   t={t}
@@ -294,7 +309,7 @@ const HomePage: React.FC = () => {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80">
           {popularCourses.map(course => (
-            <CourseCard key={course.id} t={t} labelContinue={t('home.continue')} labelStart={t('home.start')} course={course} />
+            <CourseCard key={course.id} t={t} onOpen={openSuggestedCourse} labelContinue={t('home.continue')} labelStart={t('home.start')} course={course} />
           ))}
         </div>
       </section>

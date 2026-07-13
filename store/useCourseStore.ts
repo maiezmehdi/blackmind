@@ -45,7 +45,7 @@ interface CourseContextType {
   deleteCourse: (id: string) => void;
   shareCourse: (courseId: string, user: UserProfile) => void;
   remixCourse: (courseId: string) => Course | null;
-  buyCourse: (course: Course) => void;
+  buyCourse: (course: Course) => Course;
   sellCourse: (courseId: string, price: string) => void;
   
   // User Actions
@@ -511,6 +511,7 @@ export const CourseProvider = ({ children }: { children?: React.ReactNode }) => 
       isMarketplace: false, // It is now a user course
     };
     setCourses(prev => [newCourse, ...prev]);
+    return newCourse;
   }, []);
 
   // Lists a course on the Marketplace: marks it for sale and mirrors it into
