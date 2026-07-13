@@ -29,6 +29,17 @@ const YOUTUBE_KEY = process.env.YOUTUBE_API_KEY || '';
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 2000;
 
+// Fixes a couple of narrow, specifically-identified malformed-JSON patterns
+// seen in real model output — never touches otherwise-valid JSON, so it's
+// safe to always run before JSON.parse.
+const repairJson = (s: string): string => s
+  // Observed artifact: the key gets echoed as a string before its real
+  // value, e.g. `"type": "type": "quiz"` — collapses to `"type": "quiz"`.
+  .replace(/"(\w+)"\s*:\s*"\1"\s*:/g, '"$1":')
+  // Trailing commas before a closing brace/bracket, which JSON.parse rejects
+  // but which models produce constantly.
+  .replace(/,(\s*[}\]])/g, '$1');
+
 // Robustly pull a JSON object/array out of a model reply — tolerates code
 // fences, <think> reasoning blocks, and prose around the JSON. Lets any free
 // model (even reasoning ones) be used without breaking parsing.
@@ -37,8 +48,8 @@ export const extractJson = (s: string): string => {
   const noFence = noThink.replace(/```json/gi, '').replace(/```/g, '');
   const start = noFence.indexOf('{');
   const end = noFence.lastIndexOf('}');
-  if (start >= 0 && end > start) return noFence.slice(start, end + 1);
-  return noFence.trim();
+  const sliced = start >= 0 && end > start ? noFence.slice(start, end + 1) : noFence.trim();
+  return repairJson(sliced);
 };
 
 // Free, keyless image generation (Pollinations / Flux). Renders directly in an

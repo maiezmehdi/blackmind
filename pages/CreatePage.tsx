@@ -365,6 +365,31 @@ const replaceNthOccurrence = (source: string, search: string, replacement: strin
   return source.slice(0, idx) + replacement + source.slice(idx + search.length);
 };
 
+// Classifies a raw model reply for handleGenerateCourse: a reply with no
+// braces at all is genuine conversational prose (e.g. "salut" gets a plain
+// chat reply, by design — never treat that as a failure). A reply that DOES
+// contain braces but still fails JSON.parse (after extractJson's repair
+// pass) is a real generation glitch, not a chat message — showing that raw
+// JSON verbatim in the chat is a bug, not a fallback.
+type AiParseResult = { kind: 'json'; data: any } | { kind: 'plain'; raw: string } | { kind: 'broken' };
+const parseAiResponse = (raw: string): AiParseResult => {
+  if (!raw.includes('{') || !raw.includes('}')) return { kind: 'plain', raw };
+  try {
+    return { kind: 'json', data: JSON.parse(extractJson(raw)) };
+  } catch {
+    return { kind: 'broken' };
+  }
+};
+
+// Malformed JSON from the model is usually a one-off generation glitch —
+// worth one silent retry before giving up, rather than surfacing either raw
+// JSON or a generic error on the first hiccup.
+const generateWithRetry = async (genFn: () => Promise<string>): Promise<AiParseResult> => {
+  const first = parseAiResponse(await genFn());
+  if (first.kind !== 'broken') return first;
+  return parseAiResponse(await genFn());
+};
+
 // Every keystroke of unrelated canvas UI state (toolbar position, selection
 // context, hover menus...) re-renders the whole CreatePage tree. Without
 // memoization, React re-sets this div's innerHTML on every one of those
@@ -779,18 +804,24 @@ const CreatePage: React.FC<CreatePageProps> = () => {
 
     try {
       if (isStorytellingMode) {
-        const response = await generateStorytellingStructure(activePrompt, isThinkingMode, contentLanguage);
-        let responseData: any;
-        try {
-          responseData = JSON.parse(extractJson(response));
-        } catch {
-          // Same as the regular course path: casual small talk gets a plain-text
-          // reply instead of the required JSON schema — show it instead of
-          // failing with a generic error, and leave any open story untouched.
-          setMessages(prev => [...prev, { role: 'assistant', content: (response || '').trim() || t('create.generationError'), timestamp: new Date() }]);
+        const result = await generateWithRetry(() => generateStorytellingStructure(activePrompt, isThinkingMode, contentLanguage));
+        if (result.kind === 'plain') {
+          // Casual small talk gets a plain-text reply instead of the
+          // required JSON schema — show it instead of failing with a
+          // generic error, and leave any open story untouched.
+          setMessages(prev => [...prev, { role: 'assistant', content: result.raw.trim() || t('create.generationError'), timestamp: new Date() }]);
           setIsGenerating(false);
           return;
         }
+        if (result.kind === 'broken') {
+          // The model attempted JSON (twice, after the retry) but produced
+          // something malformed — a real generation failure, not a chat
+          // reply, so show a clean error instead of dumping raw JSON.
+          setMessages(prev => [...prev, { role: 'assistant', content: t('create.generationError'), timestamp: new Date() }]);
+          setIsGenerating(false);
+          return;
+        }
+        const responseData = result.data;
         if (!responseData || !Array.isArray(responseData.scenes) || responseData.scenes.length === 0) {
           setMessages(prev => [...prev, { role: 'assistant', content: t('create.generationError'), timestamp: new Date() }]);
           setIsGenerating(false);
@@ -803,28 +834,35 @@ const CreatePage: React.FC<CreatePageProps> = () => {
         // A course is already open in the canvas: treat this prompt as an
         // instruction to modify/extend it, not as a request to start a
         // brand new, unrelated course from scratch.
-        const response = courseBeingEdited
-          ? await editCourseStructure(
-              { title: courseBeingEdited.title, description: courseBeingEdited.description, category: courseBeingEdited.category, modules: courseBeingEdited.modules },
-              activePrompt,
-              historyForAi,
-              isThinkingMode,
-              contentLanguage,
-            )
-          : await generateCourseStructure(activePrompt, historyForAi, isThinkingMode, contentLanguage);
+        const result = await generateWithRetry(() =>
+          courseBeingEdited
+            ? editCourseStructure(
+                { title: courseBeingEdited.title, description: courseBeingEdited.description, category: courseBeingEdited.category, modules: courseBeingEdited.modules },
+                activePrompt,
+                historyForAi,
+                isThinkingMode,
+                contentLanguage,
+              )
+            : generateCourseStructure(activePrompt, historyForAi, isThinkingMode, contentLanguage)
+        );
 
-        let responseData: any;
-        try {
-          responseData = JSON.parse(extractJson(response));
-        } catch {
-          // The model answered in plain conversational text instead of the
-          // required JSON schema (this happens on casual small talk, e.g.
-          // "hi") — show that reply instead of failing with a generic error,
-          // and leave whatever course is open untouched.
-          setMessages(prev => [...prev, { role: 'assistant', content: (response || '').trim() || t('create.generationError'), timestamp: new Date() }]);
+        if (result.kind === 'plain') {
+          // Casual small talk gets a plain-text reply instead of the
+          // required JSON schema — show it instead of failing with a
+          // generic error, and leave whatever course is open untouched.
+          setMessages(prev => [...prev, { role: 'assistant', content: result.raw.trim() || t('create.generationError'), timestamp: new Date() }]);
           setIsGenerating(false);
           return;
         }
+        if (result.kind === 'broken') {
+          // The model attempted JSON (twice, after the retry) but produced
+          // something malformed — a real generation failure, not a chat
+          // reply, so show a clean error instead of dumping raw JSON.
+          setMessages(prev => [...prev, { role: 'assistant', content: t('create.generationError'), timestamp: new Date() }]);
+          setIsGenerating(false);
+          return;
+        }
+        const responseData = result.data;
 
         const courseData = responseData.course || responseData;
         const commentary = responseData.commentary || t('create.architectureGenerated');
