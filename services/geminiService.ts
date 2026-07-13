@@ -6,6 +6,12 @@
 import { GoogleGenAI, Modality } from '@google/genai';
 import { InferenceClient } from '@huggingface/inference';
 
+// Spelled-out language names read far more reliably than a bare 2-letter
+// code buried in a French-language prompt — gemini-2.0-flash was observed
+// ignoring a "détecte la langue..." instruction sitting mid-prompt and
+// defaulting to French regardless of the actual language param.
+const LANGUAGE_NAMES: Record<string, string> = { fr: 'French', en: 'English' };
+
 const GEMINI_KEYS = [process.env.GEMINI_KEY_1, process.env.GEMINI_KEY_2, process.env.GEMINI_KEY_3].filter(Boolean) as string[];
 // gemini-2.5-flash is no longer offered to new API keys; 2.0-flash is broadly
 // available and has a higher free daily quota (~200/day vs ~20).
@@ -299,7 +305,10 @@ export const generateCourseStructure = async (
   thinking: boolean = false,
   language: string = 'fr',
 ): Promise<string> => {
+  const langName = LANGUAGE_NAMES[language] || 'French';
   const systemInstruction = `
+    LANGUAGE (HARD REQUIREMENT): Write your entire response — "commentary", every "suggestions" entry, and all course content (titles, modules, lessons, text, quizzes) — in ${langName}. Every field, no exceptions, regardless of what language the rest of this instruction is written in.
+
     Rôle : Tu es "Blackmind Architect", l'assistant conversationnel qui aide l'auteur à concevoir son cours.
     Style : Minimaliste, intelligent, précis, direct, légèrement provocateur. "No fluff". Tu parles comme dans une vraie conversation qui continue, pas comme si chaque message repartait de zéro.
     Aucun cours n'existe encore : c'est la phase de conception, avant la génération.
@@ -313,7 +322,7 @@ export const generateCourseStructure = async (
     2. GÉNÈRE la structure complète si : l'auteur a déjà répondu à tes questions dans l'historique, OU a donné assez de détails dès le départ, OU demande explicitement de générer maintenant ("vas-y", "génère", "oui", "lance", "direct", "choisis pour moi", etc.).
     3. Ne repose jamais deux fois la même question : si l'historique montre que tu as déjà demandé des précisions, le prochain message doit déclencher la génération (sauf si l'auteur pose lui-même une nouvelle question).
 
-    LANGUE : détecte la langue utilisée par l'auteur dans son dernier message (et dans l'historique si le dernier message est trop court pour être sûr). Réponds dans "commentary" ET génère TOUT le contenu du cours (titres, modules, leçons, textes, quiz) dans CETTE langue-là, même si elle diffère de la langue par défaut ci-dessous. N'utilise la langue par défaut (${language}) que si la langue de l'auteur est vraiment indétectable (message vide, emojis seuls, etc.).
+    RAPPEL LANGUE : "commentary", "suggestions" et tout le contenu du cours DOIVENT être rédigés en ${langName} (voir directive en tête de prompt).
 
     IMPORTANT : STRUCTURE PÉDAGOGIQUE OBLIGATOIRE
     Le TOUT PREMIER bloc de la TOUTE PREMIÈRE leçon du premier module DOIT être un bloc de type "overview" contenant les métadonnées pédagogiques.
@@ -386,7 +395,7 @@ export const generateCourseStructure = async (
   const userPrompt = [
     historyText ? `Historique récent de la conversation :\n${historyText}` : null,
     `Dernier message de l'auteur : "${prompt}"`,
-    `Réponds en JSON (structure complète si tu génères, ou question de clarification si tu préfères d'abord clarifier).`,
+    `Réponds en JSON (structure complète si tu génères, ou question de clarification si tu préfères d'abord clarifier). Write the whole response in ${langName}.`,
   ].filter(Boolean).join('\n\n');
 
   try {
@@ -410,7 +419,10 @@ export const editCourseStructure = async (
   thinking: boolean = false,
   language: string = 'fr',
 ): Promise<string> => {
+  const langName = LANGUAGE_NAMES[language] || 'French';
   const systemInstruction = `
+    LANGUAGE (HARD REQUIREMENT): Write your entire response — "commentary", every "suggestions" entry, and all course content — in ${langName}. Every field, no exceptions, regardless of what language the rest of this instruction is written in.
+
     Rôle : Tu es "Blackmind Architect", l'assistant conversationnel qui aide l'auteur à concevoir et faire évoluer son cours.
     Style : Minimaliste, intelligent, précis, direct, légèrement provocateur. "No fluff". Tu réponds comme dans une vraie conversation qui continue, pas comme si chaque message repartait de zéro.
     CONTEXTE : Tu reçois le cours EXISTANT (JSON), l'historique récent de la conversation, et le dernier message de l'auteur. Utilise l'historique pour comprendre les références implicites ("ça", "le module précédent", "plus court", "non plutôt...", "comme avant mais...").
@@ -425,7 +437,7 @@ export const editCourseStructure = async (
     - Conserve les "id" des modules/leçons/blocs existants inchangés.
     - Si la demande implique d'ajouter du contenu, ajoute-le à la suite avec de nouveaux "id" uniques (n'écrase pas l'existant).
     - Ne duplique jamais le bloc "overview" : il ne doit rester que dans la première leçon du premier module.
-    - LANGUE : détecte la langue utilisée par l'auteur dans son dernier message (et dans l'historique si trop court pour être sûr). "commentary" ET tout le contenu du cours DOIVENT être rédigés dans CETTE langue-là, même si elle diffère de la langue par défaut ci-dessous. N'utilise la langue par défaut (${language}) que si la langue de l'auteur est vraiment indétectable.
+    - RAPPEL LANGUE : "commentary" et tout le contenu du cours en ${langName} (voir directive en tête de prompt).
     - "commentary" doit être une réponse conversationnelle courte et naturelle qui tient compte de l'historique (pas une phrase générique répétée à chaque fois).
 
     SCHEMA JSON STRICT (réponds UNIQUEMENT avec ce JSON, sans texte autour) :
@@ -450,7 +462,7 @@ export const editCourseStructure = async (
     `Cours actuel (JSON) :\n${JSON.stringify(existingCourse)}`,
     historyText ? `Historique récent de la conversation :\n${historyText}` : null,
     `Dernier message de l'auteur : "${instruction}"`,
-    `Réponds en JSON avec le cours complet (modifié si nécessaire, identique sinon).`,
+    `Réponds en JSON avec le cours complet (modifié si nécessaire, identique sinon). Write the whole response in ${langName}.`,
   ].filter(Boolean).join('\n\n');
 
   try {
