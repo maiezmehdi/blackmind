@@ -223,18 +223,20 @@ const CourseMetadataCard: React.FC<{ data: any, t: any }> = ({ data, t }) => {
 // course is ready — deliberately not a plain chat bubble with chips: a
 // distinct bordered card that walks ask → recipient → confirm, closer to how
 // a clarifying-question card reads, ending in one explicit send action.
-type AutoModeStep = 'ask' | 'recipient' | 'sending' | 'sent' | 'mailto-fallback' | 'declined';
+type AutoModeStep = 'ask' | 'recipient' | 'sending' | 'sent' | 'error' | 'declined';
 const AutoModeEmailCard: React.FC<{
   courseTitle: string;
   courseDescription: string;
+  modules?: { title: string; lessonCount: number }[];
   contacts: { id: string; name: string; email: string; initials: string; color?: string }[];
   t: (key: string, vars?: Record<string, any>) => string;
-}> = ({ courseTitle, courseDescription, contacts, t }) => {
+}> = ({ courseTitle, courseDescription, modules, contacts, t }) => {
   const [step, setStep] = useState<AutoModeStep>('ask');
   // Pre-filled rather than blank — a suggested contact and a draft note the
   // user can edit, clear, or send as-is.
   const [recipient, setRecipient] = useState(contacts[0]?.email || '');
   const [note, setNote] = useState(t('create.autoDefaultNote'));
+  const [sendError, setSendError] = useState('');
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.trim());
 
   const handleSend = async () => {
@@ -242,7 +244,15 @@ const AutoModeEmailCard: React.FC<{
     const subject = t('create.emailSubject', { title: courseTitle });
     const bodyLines = [note, '', t('create.emailBodyIntro', { title: courseTitle }), courseDescription || ''].filter(Boolean);
     const text = bodyLines.join('\n');
-    const html = buildCourseEmailHtml({ title: courseTitle, description: courseDescription, note, eyebrow: t('create.emailEyebrow'), footer: t('create.emailFooter') });
+    const html = buildCourseEmailHtml({
+      title: courseTitle,
+      description: courseDescription,
+      note,
+      eyebrow: t('create.emailEyebrow'),
+      footer: t('create.emailFooter'),
+      programLabel: t('create.emailProgramLabel'),
+      modules: modules?.map(m => ({ title: m.title, meta: m.lessonCount === 1 ? t('create.emailLessonCountOne') : t('create.emailLessonCountMany', { count: m.lessonCount }) })),
+    });
     try {
       const res = await fetch('/api/send-email', {
         method: 'POST',
@@ -250,12 +260,12 @@ const AutoModeEmailCard: React.FC<{
         body: JSON.stringify({ to: recipient.trim(), subject, text, html }),
       });
       if (res.ok) { setStep('sent'); return; }
-    } catch {
-      // network error / API route unreachable — fall through to mailto below
+      const data = await res.json().catch(() => ({}));
+      setSendError(data?.error || `HTTP ${res.status}`);
+    } catch (e: any) {
+      setSendError(e?.message || 'network error');
     }
-    const mailto = `mailto:${encodeURIComponent(recipient.trim())}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
-    window.location.href = mailto;
-    setStep('mailto-fallback');
+    setStep('error');
   };
 
   return (
@@ -339,9 +349,14 @@ const AutoModeEmailCard: React.FC<{
         </div>
       )}
 
-      {step === 'mailto-fallback' && (
-        <div className="flex items-center gap-3 text-sm font-bold text-gemini-text py-2 animate-in fade-in duration-300">
-          <Mail size={18} className="text-amber-500" /> {t('create.autoMailtoFallback')}
+      {step === 'error' && (
+        <div className="space-y-3 animate-in fade-in duration-300">
+          <div className="flex items-start gap-3 text-sm text-red-400">
+            <AlertCircle size={18} className="shrink-0 mt-0.5" /> {t('create.autoSendError', { reason: sendError })}
+          </div>
+          <button onClick={() => setStep('recipient')} className="px-4 py-2.5 border border-gemini-border rounded-2xl text-[10px] font-bold uppercase tracking-widest text-gemini-dim hover:text-gemini-text transition-all">
+            {t('common.retry')}
+          </button>
         </div>
       )}
 
@@ -379,7 +394,8 @@ const AutoModeWizardCard: React.FC<{
   // user can edit, clear, or send as-is.
   const [recipient, setRecipient] = useState(contacts[0]?.email || '');
   const [note, setNote] = useState(t('create.autoDefaultNote'));
-  const [sendResult, setSendResult] = useState<'sent' | 'mailto-fallback' | null>(null);
+  const [sendResult, setSendResult] = useState<'sent' | 'error' | null>(null);
+  const [sendErrorMsg, setSendErrorMsg] = useState('');
   const startedRef = useRef(false);
 
   const askAI = async (prompt: string, hist: ChatTurn[]) => {
@@ -426,7 +442,17 @@ const AutoModeWizardCard: React.FC<{
       const subject = t('create.emailSubject', { title: courseData.title });
       const bodyLines = [note, '', t('create.emailBodyIntro', { title: courseData.title }), courseData.description || ''].filter(Boolean);
       const text = bodyLines.join('\n');
-      const html = buildCourseEmailHtml({ title: courseData.title, description: courseData.description || '', note, eyebrow: t('create.emailEyebrow'), footer: t('create.emailFooter') });
+      const html = buildCourseEmailHtml({
+        title: courseData.title,
+        description: courseData.description || '',
+        note,
+        eyebrow: t('create.emailEyebrow'),
+        footer: t('create.emailFooter'),
+        programLabel: t('create.emailProgramLabel'),
+        modules: Array.isArray(courseData.modules)
+          ? courseData.modules.map((m: any) => ({ title: m.title, lessonCount: Array.isArray(m.lessons) ? m.lessons.length : 0 })).map((m: { title: string; lessonCount: number }) => ({ title: m.title, meta: m.lessonCount === 1 ? t('create.emailLessonCountOne') : t('create.emailLessonCountMany', { count: m.lessonCount }) }))
+          : undefined,
+      });
       try {
         const res = await fetch('/api/send-email', {
           method: 'POST',
@@ -434,12 +460,15 @@ const AutoModeWizardCard: React.FC<{
           body: JSON.stringify({ to: recipient.trim(), subject, text, html }),
         });
         if (res.ok) { setSendResult('sent'); setStep('done'); return; }
-      } catch {
-        // network error / API route unreachable — fall through to mailto below
+        const data = await res.json().catch(() => ({}));
+        setSendErrorMsg(data?.error || `HTTP ${res.status}`);
+      } catch (e: any) {
+        setSendErrorMsg(e?.message || 'network error');
       }
-      const mailto = `mailto:${encodeURIComponent(recipient.trim())}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
-      window.location.href = mailto;
-      setSendResult('mailto-fallback');
+      // The course itself was already applied via onComplete above — only
+      // the email failed, so this stays on 'done' (course-ready) with an
+      // error line, never silently redirecting to the user's own mail app.
+      setSendResult('error');
       setStep('done');
     } else {
       setStep('done');
@@ -594,9 +623,9 @@ const AutoModeWizardCard: React.FC<{
               <Mail size={16} className="text-amber-500" /> {t('create.emailSentSuccess')}
             </div>
           )}
-          {sendResult === 'mailto-fallback' && (
-            <div className="flex items-center gap-3 text-sm text-gemini-dim py-1">
-              <Mail size={16} className="text-amber-500" /> {t('create.autoMailtoFallback')}
+          {sendResult === 'error' && (
+            <div className="flex items-start gap-3 text-sm text-red-400 py-1">
+              <AlertCircle size={16} className="shrink-0 mt-0.5" /> {t('create.autoSendError', { reason: sendErrorMsg })}
             </div>
           )}
         </div>
@@ -757,6 +786,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
   const [inviteSuccessEmail, setInviteSuccessEmail] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailSentSuccess, setEmailSentSuccess] = useState(false);
+  const [emailSendError, setEmailSendError] = useState('');
 
   const [inviteEmail, setInviteEmail] = useState('');
   const [wsSearchTerm, setWsSearchTerm] = useState('');
@@ -1160,7 +1190,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
           setGeneratedCourse(updatedCourse);
           setMessages(prev => [...prev, { role: 'assistant', content: commentary, suggestions: [...(suggestions || []), "__ACTION_PREVIEW__"], timestamp: new Date() }]);
           if (isAutoMode) {
-            setMessages(prev => [...prev, { role: 'assistant', content: '', suggestions: ['__AUTO_MODE_CARD__'], autoModeCourse: { title: updatedCourse.title, description: updatedCourse.description }, timestamp: new Date() }]);
+            setMessages(prev => [...prev, { role: 'assistant', content: '', suggestions: ['__AUTO_MODE_CARD__'], autoModeCourse: { title: updatedCourse.title, description: updatedCourse.description, modules: (updatedCourse.modules || []).map(m => ({ title: m.title, lessonCount: (m.lessons || []).length })) }, timestamp: new Date() }]);
           }
         } else {
           applyNewCourse(courseData, activePrompt);
@@ -2276,9 +2306,18 @@ const CreatePage: React.FC<CreatePageProps> = () => {
               const subject = t('create.emailSubject', { title: generatedCourse.title });
               const bodyLines = [note, '', t('create.emailBodyIntro', { title: generatedCourse.title }), generatedCourse.description || ''].filter(Boolean);
               const text = bodyLines.join('\n');
-              const html = buildCourseEmailHtml({ title: generatedCourse.title, description: generatedCourse.description || '', note, eyebrow: t('create.emailEyebrow'), footer: t('create.emailFooter') });
+              const html = buildCourseEmailHtml({
+                title: generatedCourse.title,
+                description: generatedCourse.description || '',
+                note,
+                eyebrow: t('create.emailEyebrow'),
+                footer: t('create.emailFooter'),
+                programLabel: t('create.emailProgramLabel'),
+                modules: (generatedCourse.modules || []).map(m => ({ title: m.title, lessonCount: (m.lessons || []).length })).map(m => ({ title: m.title, meta: m.lessonCount === 1 ? t('create.emailLessonCountOne') : t('create.emailLessonCountMany', { count: m.lessonCount }) })),
+              });
 
               setIsSendingEmail(true);
+              setEmailSendError('');
               try {
                 const res = await fetch('/api/send-email', {
                   method: 'POST',
@@ -2291,16 +2330,14 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                   setTimeout(() => { setIsEmailModalOpen(false); setEmailSentSuccess(false); }, 1800);
                   return;
                 }
-              } catch {
-                // network error / API route unreachable — fall through to mailto below
+                const data = await res.json().catch(() => ({}));
+                setEmailSendError(data?.error || `HTTP ${res.status}`);
+              } catch (err: any) {
+                setEmailSendError(err?.message || 'network error');
               }
-              // Not configured (no RESEND_API_KEY), recipient rejected by the
-              // resend.dev test domain, or any other failure: fall back to a
-              // pre-filled mailto: draft rather than a dead end.
+              // Sent directly or not at all — never silently falls back to
+              // opening the user's own mail app.
               setIsSendingEmail(false);
-              const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
-              window.location.href = mailto;
-              setIsEmailModalOpen(false);
             }}
             className="relative w-full max-w-md bg-gemini-surface border border-gemini-border rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
           >
@@ -2320,6 +2357,12 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                     <Mail className="text-gemini-accent shrink-0 mt-0.5" size={18} />
                     <p className="text-xs text-gemini-dim leading-relaxed">{t('create.emailDesc')}</p>
                   </div>
+                  {emailSendError && (
+                    <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-2xl flex items-start gap-3">
+                      <AlertCircle className="text-red-400 shrink-0 mt-0.5" size={18} />
+                      <p className="text-xs text-red-400 leading-relaxed">{t('create.autoSendError', { reason: emailSendError })}</p>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim ml-1">{t('create.emailToLabel')}</label>
                     <input name="to" type="email" required disabled={isSendingEmail} defaultValue={allSuggestedContacts[0]?.email || ''} placeholder="ami@example.com" className="w-full bg-gemini-bg border border-gemini-border rounded-2xl px-5 py-4 text-sm outline-none focus:border-gemini-accent transition-all placeholder:text-gemini-dim/50 text-gemini-text disabled:opacity-50" />
@@ -2615,7 +2658,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
               <div className="py-1">
                 <button onClick={() => { setIsShareModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-dim hover:text-gemini-text"><Briefcase size={16} /> {t('create.menuShare')}</button>
                 <button onClick={() => { setIsTeamModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-dim hover:text-gemini-text"><Users size={16} /> {t('create.menuInvite')}</button>
-                <button onClick={() => { setEmailSentSuccess(false); setIsEmailModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-dim hover:text-gemini-text"><Mail size={16} /> {t('create.menuEmail')}</button>
+                <button onClick={() => { setEmailSentSuccess(false); setEmailSendError(''); setIsEmailModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-left text-gemini-dim hover:text-gemini-text"><Mail size={16} /> {t('create.menuEmail')}</button>
               </div>
               <div className="py-1">
                  <button onClick={() => { setIsDownloadModalOpen(true); setIsActionMenuOpen(false); }} className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-gemini-bg text-[11px] font-bold uppercase tracking-widest transition-colors text-gemini-dim hover:text-gemini-text group relative">
@@ -2712,6 +2755,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                      <AutoModeEmailCard
                        courseTitle={m.autoModeCourse?.title || ''}
                        courseDescription={m.autoModeCourse?.description || ''}
+                       modules={m.autoModeCourse?.modules}
                        contacts={allSuggestedContacts}
                        t={t}
                      />

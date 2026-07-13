@@ -2,6 +2,7 @@
   "common": {
     "save": "Save",
     "cancel": "Cancel",
+    "retry": "Retry",
     "edit": "Edit",
     "delete": "Delete",
     "search": "Search",
@@ -371,7 +372,6 @@
     "autoEmailDeclined": "No worries, your course is ready in the preview.",
     "autoRecipientQuestion": "Who do you want to send it to?",
     "autoSending": "Sending...",
-    "autoMailtoFallback": "A draft opened in your mail app.",
     "autoThinking": "Blackmind is thinking...",
     "autoWizardAnswerPlaceholder": "Or type your own answer...",
     "autoNextBtn": "Next",
@@ -384,6 +384,10 @@
     "autoDefaultNote": "I think you'll find this course interesting!",
     "emailEyebrow": "A course shared with you",
     "emailFooter": "Sent via Blackmind — the AI-powered course creation platform.",
+    "emailProgramLabel": "What's inside",
+    "emailLessonCountOne": "1 lesson",
+    "emailLessonCountMany": "{count} lessons",
+    "autoSendError": "Sending failed: {reason}",
     "addArModelTitle": "Add a 3D Model",
     "templates": {
       "chapters5Title": "5-chapter structured course",
