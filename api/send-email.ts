@@ -14,14 +14,14 @@ export default async function handler(req: Request): Promise<Response> {
     return new Response(JSON.stringify({ error: 'not_configured' }), { status: 501 });
   }
 
-  let body: { to?: string; subject?: string; text?: string };
+  let body: { to?: string; subject?: string; text?: string; html?: string };
   try {
     body = await req.json();
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400 });
   }
 
-  const { to, subject, text } = body;
+  const { to, subject, text, html } = body;
   if (!to || !subject) {
     return new Response(JSON.stringify({ error: 'Missing to/subject' }), { status: 400 });
   }
@@ -41,6 +41,9 @@ export default async function handler(req: Request): Promise<Response> {
         to: [to],
         subject,
         text,
+        // html is optional — callers that don't build a styled template
+        // still work with a plain-text-only email, same as before.
+        ...(html ? { html } : {}),
       }),
     });
 

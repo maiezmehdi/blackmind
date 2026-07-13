@@ -372,7 +372,7 @@
     "autoRecipientQuestion": "Who do you want to send it to?",
     "autoSending": "Sending...",
     "autoMailtoFallback": "A draft opened in your mail app.",
-    "autoThinking": "Léa is thinking...",
+    "autoThinking": "Blackmind is thinking...",
     "autoWizardAnswerPlaceholder": "Or type your own answer...",
     "autoNextBtn": "Next",
     "autoWizardEmailAsk": "Want to receive this course by email once it's ready?",
@@ -381,6 +381,9 @@
     "autoGenerating": "Generating the course...",
     "autoCourseReady": "Course created successfully!",
     "autoCancelled": "Assistant cancelled.",
+    "autoDefaultNote": "I think you'll find this course interesting!",
+    "emailEyebrow": "A course shared with you",
+    "emailFooter": "Sent via Blackmind — the AI-powered course creation platform.",
     "addArModelTitle": "Add a 3D Model",
     "templates": {
       "chapters5Title": "5-chapter structured course",

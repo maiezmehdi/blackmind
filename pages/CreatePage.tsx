@@ -102,6 +102,7 @@ import { downloadMedia, mediaFilename } from '../services/download';
 import { isGoogleConfigured, isGoogleConnected, connectGoogle, getAccessToken } from '../services/googleAuth';
 import { uploadCourseAsGoogleDoc } from '../services/googleDrive';
 import { htmlToMarkdown } from '../services/htmlToMarkdown';
+import { buildCourseEmailHtml } from '../services/emailTemplate';
 import { Course, Module, Lesson, ContentBlock, BlockType, UserProfile, WorkspaceMember } from '../types';
 import { useCourseContext } from '../store/useCourseStore';
 import ArModelBlock from '../components/ArModelBlock';
@@ -230,8 +231,10 @@ const AutoModeEmailCard: React.FC<{
   t: (key: string, vars?: Record<string, any>) => string;
 }> = ({ courseTitle, courseDescription, contacts, t }) => {
   const [step, setStep] = useState<AutoModeStep>('ask');
-  const [recipient, setRecipient] = useState('');
-  const [note, setNote] = useState('');
+  // Pre-filled rather than blank — a suggested contact and a draft note the
+  // user can edit, clear, or send as-is.
+  const [recipient, setRecipient] = useState(contacts[0]?.email || '');
+  const [note, setNote] = useState(t('create.autoDefaultNote'));
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.trim());
 
   const handleSend = async () => {
@@ -239,11 +242,12 @@ const AutoModeEmailCard: React.FC<{
     const subject = t('create.emailSubject', { title: courseTitle });
     const bodyLines = [note, '', t('create.emailBodyIntro', { title: courseTitle }), courseDescription || ''].filter(Boolean);
     const text = bodyLines.join('\n');
+    const html = buildCourseEmailHtml({ title: courseTitle, description: courseDescription, note, eyebrow: t('create.emailEyebrow'), footer: t('create.emailFooter') });
     try {
       const res = await fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: recipient.trim(), subject, text }),
+        body: JSON.stringify({ to: recipient.trim(), subject, text, html }),
       });
       if (res.ok) { setStep('sent'); return; }
     } catch {
@@ -371,8 +375,10 @@ const AutoModeWizardCard: React.FC<{
   const [answer, setAnswer] = useState('');
   const [courseData, setCourseData] = useState<any | null>(null);
   const [wantsEmail, setWantsEmail] = useState(false);
-  const [recipient, setRecipient] = useState('');
-  const [note, setNote] = useState('');
+  // Pre-filled rather than blank — a suggested contact and a draft note the
+  // user can edit, clear, or send as-is.
+  const [recipient, setRecipient] = useState(contacts[0]?.email || '');
+  const [note, setNote] = useState(t('create.autoDefaultNote'));
   const [sendResult, setSendResult] = useState<'sent' | 'mailto-fallback' | null>(null);
   const startedRef = useRef(false);
 
@@ -420,11 +426,12 @@ const AutoModeWizardCard: React.FC<{
       const subject = t('create.emailSubject', { title: courseData.title });
       const bodyLines = [note, '', t('create.emailBodyIntro', { title: courseData.title }), courseData.description || ''].filter(Boolean);
       const text = bodyLines.join('\n');
+      const html = buildCourseEmailHtml({ title: courseData.title, description: courseData.description || '', note, eyebrow: t('create.emailEyebrow'), footer: t('create.emailFooter') });
       try {
         const res = await fetch('/api/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: recipient.trim(), subject, text }),
+          body: JSON.stringify({ to: recipient.trim(), subject, text, html }),
         });
         if (res.ok) { setSendResult('sent'); setStep('done'); return; }
       } catch {
@@ -470,8 +477,8 @@ const AutoModeWizardCard: React.FC<{
               {question.suggestions.map((s, i) => (
                 <button
                   key={i}
-                  onClick={() => advance(s)}
-                  className="px-3 py-2 rounded-2xl bg-gemini-bg border border-gemini-border text-xs font-medium text-gemini-dim hover:border-amber-500/40 hover:text-gemini-text transition-all text-left"
+                  onClick={() => setAnswer(s)}
+                  className={`px-3 py-2 rounded-2xl border text-xs font-medium transition-all text-left ${answer === s ? 'bg-amber-500/10 border-amber-500 text-gemini-text' : 'bg-gemini-bg border-gemini-border text-gemini-dim hover:border-amber-500/40 hover:text-gemini-text'}`}
                 >
                   {s}
                 </button>
@@ -2269,13 +2276,14 @@ const CreatePage: React.FC<CreatePageProps> = () => {
               const subject = t('create.emailSubject', { title: generatedCourse.title });
               const bodyLines = [note, '', t('create.emailBodyIntro', { title: generatedCourse.title }), generatedCourse.description || ''].filter(Boolean);
               const text = bodyLines.join('\n');
+              const html = buildCourseEmailHtml({ title: generatedCourse.title, description: generatedCourse.description || '', note, eyebrow: t('create.emailEyebrow'), footer: t('create.emailFooter') });
 
               setIsSendingEmail(true);
               try {
                 const res = await fetch('/api/send-email', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ to, subject, text }),
+                  body: JSON.stringify({ to, subject, text, html }),
                 });
                 if (res.ok) {
                   setIsSendingEmail(false);
@@ -2314,11 +2322,11 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim ml-1">{t('create.emailToLabel')}</label>
-                    <input name="to" type="email" required disabled={isSendingEmail} placeholder="ami@example.com" className="w-full bg-gemini-bg border border-gemini-border rounded-2xl px-5 py-4 text-sm outline-none focus:border-gemini-accent transition-all placeholder:text-gemini-dim/50 text-gemini-text disabled:opacity-50" />
+                    <input name="to" type="email" required disabled={isSendingEmail} defaultValue={allSuggestedContacts[0]?.email || ''} placeholder="ami@example.com" className="w-full bg-gemini-bg border border-gemini-border rounded-2xl px-5 py-4 text-sm outline-none focus:border-gemini-accent transition-all placeholder:text-gemini-dim/50 text-gemini-text disabled:opacity-50" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-gemini-dim ml-1">{t('create.emailNoteLabel')}</label>
-                    <textarea name="note" rows={3} disabled={isSendingEmail} placeholder={t('create.emailNotePlaceholder')} className="w-full bg-gemini-bg border border-gemini-border rounded-2xl px-5 py-4 text-sm outline-none focus:border-gemini-accent transition-all placeholder:text-gemini-dim/50 text-gemini-text resize-none disabled:opacity-50" />
+                    <textarea name="note" rows={3} disabled={isSendingEmail} defaultValue={t('create.autoDefaultNote')} placeholder={t('create.emailNotePlaceholder')} className="w-full bg-gemini-bg border border-gemini-border rounded-2xl px-5 py-4 text-sm outline-none focus:border-gemini-accent transition-all placeholder:text-gemini-dim/50 text-gemini-text resize-none disabled:opacity-50" />
                   </div>
                 </div>
                 <div className="p-8 bg-gemini-bg/30 border-t border-gemini-border flex gap-3">

@@ -393,7 +393,7 @@
     "autoRecipientQuestion": "À qui veux-tu l'envoyer ?",
     "autoSending": "Envoi en cours...",
     "autoMailtoFallback": "Un brouillon s'est ouvert dans ta messagerie.",
-    "autoThinking": "Léa réfléchit...",
+    "autoThinking": "Blackmind réfléchit...",
     "autoWizardAnswerPlaceholder": "Ou écris ta réponse...",
     "autoNextBtn": "Suivant",
     "autoWizardEmailAsk": "Veux-tu recevoir ce cours par email une fois prêt ?",
@@ -402,6 +402,9 @@
     "autoGenerating": "Génération du cours en cours...",
     "autoCourseReady": "Cours créé avec succès !",
     "autoCancelled": "Assistant annulé.",
+    "autoDefaultNote": "Je pense que ce cours va t'intéresser !",
+    "emailEyebrow": "Cours partagé avec toi",
+    "emailFooter": "Envoyé via Blackmind — la plateforme de création de cours propulsée par l'IA.",
     "addArModelTitle": "Ajouter un Modèle 3D",
     "templates": {
       "chapters5Title": "Cours structuré 5 chapitres",
