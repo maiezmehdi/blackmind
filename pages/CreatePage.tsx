@@ -736,6 +736,24 @@ const fileToDataUrl = (file: File): Promise<string> =>
     reader.readAsDataURL(file);
   });
 
+// Defensive normalization for AI-returned course structures. The Qwen
+// fallback (used once every Gemini key is quota-exhausted) is far less
+// reliable than Gemini at producing schema-exact nested JSON — observed in
+// production omitting a module's "lessons" array entirely, which crashed
+// the canvas render deep inside modules.map(mod => mod.lessons.map(...))
+// with "Cannot read properties of undefined (reading 'map')". A non-empty
+// top-level "modules" array is already checked before this runs; this just
+// guarantees every module has a lessons array and every lesson a content
+// array, regardless of which provider produced the JSON.
+const normalizeModules = (modules: any[]): Module[] =>
+  (Array.isArray(modules) ? modules : []).map((mod: any) => ({
+    ...mod,
+    lessons: (Array.isArray(mod?.lessons) ? mod.lessons : []).map((lesson: any) => ({
+      ...lesson,
+      content: Array.isArray(lesson?.content) ? lesson.content : [],
+    })),
+  }));
+
 // Every keystroke of unrelated canvas UI state (toolbar position, selection
 // context, hover menus...) re-renders the whole CreatePage tree. Without
 // memoization, React re-sets this div's innerHTML on every one of those
@@ -1302,7 +1320,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
             title: courseData.title || courseBeingEdited.title,
             description: courseData.description || courseBeingEdited.description,
             category: courseData.category || courseBeingEdited.category,
-            modules: courseData.modules,
+            modules: normalizeModules(courseData.modules),
           };
           setGeneratedCourse(updatedCourse);
           setMessages(prev => [...prev, { role: 'assistant', content: commentary, suggestions: [...(suggestions || []), "__ACTION_PREVIEW__"], timestamp: new Date() }]);
@@ -1329,6 +1347,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
     const newCourse: Course = {
       id: Math.random().toString(36).substr(2, 9),
       ...courseData,
+      modules: normalizeModules(courseData.modules),
       image: `https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=1200`,
       progress: 0,
       author: currentUser?.name || 'Anonyme',
