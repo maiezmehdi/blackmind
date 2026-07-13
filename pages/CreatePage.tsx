@@ -257,13 +257,22 @@ const AutoModeEmailCard: React.FC<{
         return { title: m.title, meta: lessonCount === 1 ? t('create.emailLessonCountOne') : t('create.emailLessonCountMany', { count: lessonCount }) };
       }),
     });
+    // The PDF is a bonus attachment, not the point of the email — if building
+    // it fails (e.g. a stale chunk after a redeploy), send without it rather
+    // than losing the whole email over an attachment.
+    let attachments: { filename: string; content: string }[] | undefined;
     try {
       const pdfBlob = await buildCoursePdfBlob({ title: courseTitle, description: courseDescription, category: courseCategory, modules: modules || [] } as Course);
       const pdfBase64 = await blobToBase64(pdfBlob);
+      attachments = [{ filename: `${slugify(courseTitle)}.pdf`, content: pdfBase64 }];
+    } catch (e: any) {
+      console.warn('[email] PDF attachment build failed, sending without it:', e?.message || e);
+    }
+    try {
       const res = await fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: recipient.trim(), subject, text, html, attachments: [{ filename: `${slugify(courseTitle)}.pdf`, content: pdfBase64 }] }),
+        body: JSON.stringify({ to: recipient.trim(), subject, text, html, ...(attachments ? { attachments } : {}) }),
       });
       if (res.ok) { setStep('sent'); return; }
       const data = await res.json().catch(() => ({}));
@@ -343,11 +352,7 @@ const AutoModeEmailCard: React.FC<{
         </div>
       )}
 
-      {step === 'sending' && (
-        <div className="flex items-center gap-3 text-sm text-gemini-dim py-2 animate-in fade-in duration-300">
-          <Loader2 size={16} className="animate-spin text-amber-500" /> {t('create.autoSending')}
-        </div>
-      )}
+      {step === 'sending' && <ThinkingIndicator label={t('create.autoSending')} />}
 
       {step === 'sent' && (
         <div className="flex items-center gap-3 text-sm font-bold text-gemini-text py-2 animate-in fade-in duration-300">
@@ -374,6 +379,29 @@ const AutoModeEmailCard: React.FC<{
     </div>
   );
 };
+
+// Richer "busy" indicator shared by the wizard's loading/generating/sending
+// steps — a pulsing icon badge + bouncing dots instead of a bare spinner,
+// used for perceived depth without implying real streamed reasoning (chain-
+// of-thought display was explicitly requested to be dropped for now).
+const ThinkingIndicator: React.FC<{ label: string }> = ({ label }) => (
+  <div className="flex items-center gap-4 py-2 animate-in fade-in duration-300">
+    <div className="relative w-10 h-10 shrink-0">
+      <div className="absolute inset-0 rounded-2xl bg-amber-500/20 animate-ping"></div>
+      <div className="relative w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+        <Sparkles size={16} className="text-amber-500 animate-pulse" />
+      </div>
+    </div>
+    <div className="space-y-1.5">
+      <p className="text-sm font-semibold text-gemini-text">{label}</p>
+      <div className="flex gap-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-bounce [animation-delay:0ms]"></span>
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-bounce [animation-delay:150ms]"></span>
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-bounce [animation-delay:300ms]"></span>
+      </div>
+    </div>
+  </div>
+);
 
 // Mode automatisé, façon Claude: opened by the very first prompt, BEFORE any
 // generation happens. Loops the model's own clarifying-question mechanism
@@ -459,13 +487,22 @@ const AutoModeWizardCard: React.FC<{
           ? courseData.modules.map((m: any) => ({ title: m.title, lessonCount: Array.isArray(m.lessons) ? m.lessons.length : 0 })).map((m: { title: string; lessonCount: number }) => ({ title: m.title, meta: m.lessonCount === 1 ? t('create.emailLessonCountOne') : t('create.emailLessonCountMany', { count: m.lessonCount }) }))
           : undefined,
       });
+      // The PDF is a bonus attachment, not the point of the email — if
+      // building it fails (e.g. a stale chunk after a redeploy), send
+      // without it rather than losing the whole email over an attachment.
+      let attachments: { filename: string; content: string }[] | undefined;
       try {
         const pdfBlob = await buildCoursePdfBlob({ title: courseData.title, description: courseData.description, category: courseData.category, modules: courseData.modules } as Course);
         const pdfBase64 = await blobToBase64(pdfBlob);
+        attachments = [{ filename: `${slugify(courseData.title)}.pdf`, content: pdfBase64 }];
+      } catch (e: any) {
+        console.warn('[email] PDF attachment build failed, sending without it:', e?.message || e);
+      }
+      try {
         const res = await fetch('/api/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: recipient.trim(), subject, text, html, attachments: [{ filename: `${slugify(courseData.title)}.pdf`, content: pdfBase64 }] }),
+          body: JSON.stringify({ to: recipient.trim(), subject, text, html, ...(attachments ? { attachments } : {}) }),
         });
         if (res.ok) { setSendResult('sent'); setStep('done'); return; }
         const data = await res.json().catch(() => ({}));
@@ -500,11 +537,7 @@ const AutoModeWizardCard: React.FC<{
         )}
       </div>
 
-      {step === 'loading' && (
-        <div className="flex items-center gap-3 text-sm text-gemini-dim py-2 animate-in fade-in duration-300">
-          <Loader2 size={16} className="animate-spin text-amber-500" /> {t('create.autoThinking')}
-        </div>
-      )}
+      {step === 'loading' && <ThinkingIndicator label={t('create.autoThinking')} />}
 
       {step === 'question' && question && (
         <div className="space-y-4 animate-in fade-in duration-300">
@@ -609,17 +642,9 @@ const AutoModeWizardCard: React.FC<{
         </div>
       )}
 
-      {step === 'generating' && (
-        <div className="flex items-center gap-3 text-sm text-gemini-dim py-2 animate-in fade-in duration-300">
-          <Loader2 size={16} className="animate-spin text-amber-500" /> {t('create.autoGenerating')}
-        </div>
-      )}
+      {step === 'generating' && <ThinkingIndicator label={t('create.autoGenerating')} />}
 
-      {step === 'sending' && (
-        <div className="flex items-center gap-3 text-sm text-gemini-dim py-2 animate-in fade-in duration-300">
-          <Loader2 size={16} className="animate-spin text-amber-500" /> {t('create.autoSending')}
-        </div>
-      )}
+      {step === 'sending' && <ThinkingIndicator label={t('create.autoSending')} />}
 
       {step === 'done' && (
         <div className="space-y-2 animate-in fade-in duration-300">
@@ -2337,13 +2362,22 @@ const CreatePage: React.FC<CreatePageProps> = () => {
 
               setIsSendingEmail(true);
               setEmailSendError('');
+              // The PDF is a bonus attachment, not the point of the email —
+              // if building it fails (e.g. a stale chunk after a redeploy),
+              // send without it rather than losing the whole email over it.
+              let attachments: { filename: string; content: string }[] | undefined;
               try {
                 const pdfBlob = await buildCoursePdfBlob(generatedCourse);
                 const pdfBase64 = await blobToBase64(pdfBlob);
+                attachments = [{ filename: `${slugify(generatedCourse.title)}.pdf`, content: pdfBase64 }];
+              } catch (e: any) {
+                console.warn('[email] PDF attachment build failed, sending without it:', e?.message || e);
+              }
+              try {
                 const res = await fetch('/api/send-email', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ to, subject, text, html, attachments: [{ filename: `${slugify(generatedCourse.title)}.pdf`, content: pdfBase64 }] }),
+                  body: JSON.stringify({ to, subject, text, html, ...(attachments ? { attachments } : {}) }),
                 });
                 if (res.ok) {
                   setIsSendingEmail(false);

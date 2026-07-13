@@ -313,7 +313,7 @@ export const generateCourseStructure = async (
     2. GÉNÈRE la structure complète si : l'auteur a déjà répondu à tes questions dans l'historique, OU a donné assez de détails dès le départ, OU demande explicitement de générer maintenant ("vas-y", "génère", "oui", "lance", "direct", "choisis pour moi", etc.).
     3. Ne repose jamais deux fois la même question : si l'historique montre que tu as déjà demandé des précisions, le prochain message doit déclencher la génération (sauf si l'auteur pose lui-même une nouvelle question).
 
-    Quand tu génères : TOUT le contenu (titres, modules, leçons, textes, quiz) DOIT ETRE redigé dans la langue spécifiée: ${language}.
+    LANGUE : détecte la langue utilisée par l'auteur dans son dernier message (et dans l'historique si le dernier message est trop court pour être sûr). Réponds dans "commentary" ET génère TOUT le contenu du cours (titres, modules, leçons, textes, quiz) dans CETTE langue-là, même si elle diffère de la langue par défaut ci-dessous. N'utilise la langue par défaut (${language}) que si la langue de l'auteur est vraiment indétectable (message vide, emojis seuls, etc.).
 
     IMPORTANT : STRUCTURE PÉDAGOGIQUE OBLIGATOIRE
     Le TOUT PREMIER bloc de la TOUTE PREMIÈRE leçon du premier module DOIT être un bloc de type "overview" contenant les métadonnées pédagogiques.
@@ -425,7 +425,7 @@ export const editCourseStructure = async (
     - Conserve les "id" des modules/leçons/blocs existants inchangés.
     - Si la demande implique d'ajouter du contenu, ajoute-le à la suite avec de nouveaux "id" uniques (n'écrase pas l'existant).
     - Ne duplique jamais le bloc "overview" : il ne doit rester que dans la première leçon du premier module.
-    - TOUT le contenu DOIT être rédigé dans la langue : ${language}.
+    - LANGUE : détecte la langue utilisée par l'auteur dans son dernier message (et dans l'historique si trop court pour être sûr). "commentary" ET tout le contenu du cours DOIVENT être rédigés dans CETTE langue-là, même si elle diffère de la langue par défaut ci-dessous. N'utilise la langue par défaut (${language}) que si la langue de l'auteur est vraiment indétectable.
     - "commentary" doit être une réponse conversationnelle courte et naturelle qui tient compte de l'historique (pas une phrase générique répétée à chaque fois).
 
     SCHEMA JSON STRICT (réponds UNIQUEMENT avec ce JSON, sans texte autour) :
@@ -520,7 +520,7 @@ export const generateAiBlock = async (type: string, prompt: string, options: any
 export const generateStorytellingStructure = async (prompt: string, thinking: boolean = false, language: string = 'fr'): Promise<string> => {
   const systemInstruction = `
     Role: You are an expert screenwriter and director.
-    Task: Create a storytelling structure based on the prompt, written in language: ${language}.
+    Task: Create a storytelling structure based on the prompt. Detect the language the author wrote the prompt in and write everything in that language — only fall back to ${language} if the prompt's language truly can't be detected.
     Respond ONLY with JSON in this format:
     {
       "title": "Story Title",
