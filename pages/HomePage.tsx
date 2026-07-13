@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Sparkles, TrendingUp, Book, Brain, Code, Palette, Globe, Trash2, AlertCircle } from 'lucide-react';
+import { Search, Sparkles, TrendingUp, Book, Brain, Code, Palette, Globe, Trash2, AlertCircle, Pencil } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCourseContext } from '../store/useCourseStore';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -26,7 +26,7 @@ const ArIcon = ({ size = 12, className = "" }: { size?: number, className?: stri
   </svg>
 );
 
-const CourseCard = ({ course, onDeleteRequest, labelStart, labelContinue, t, to, onOpen }: any) => {
+const CourseCard = ({ course, onDeleteRequest, onEdit, labelStart, labelContinue, t, to, onOpen }: any) => {
   // Check if any lesson contains an AR block
   const hasAr = course.modules?.some((m: any) =>
     m.lessons?.some((l: any) =>
@@ -61,17 +61,34 @@ const CourseCard = ({ course, onDeleteRequest, labelStart, labelContinue, t, to,
             </div>
           )}
         </div>
-        {onDeleteRequest && (
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onDeleteRequest(course);
-            }}
-            className="absolute top-3 left-3 p-1.5 bg-neutral-900/60 hover:bg-red-500 text-neutral-400 hover:text-white rounded-lg transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm z-10"
-          >
-            <Trash2 size={14} />
-          </button>
+        {(onDeleteRequest || onEdit) && (
+          <div className="absolute top-3 left-3 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all z-10">
+            {onEdit && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onEdit(course);
+                }}
+                title={t('home.editCourse')}
+                className="p-1.5 bg-neutral-900/60 hover:bg-gemini-accent text-neutral-400 hover:text-gemini-bg rounded-lg transition-all backdrop-blur-sm"
+              >
+                <Pencil size={14} />
+              </button>
+            )}
+            {onDeleteRequest && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onDeleteRequest(course);
+                }}
+                className="p-1.5 bg-neutral-900/60 hover:bg-red-500 text-neutral-400 hover:text-white rounded-lg transition-all backdrop-blur-sm"
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
+          </div>
         )}
       </div>
       <div className="p-4 flex flex-col justify-between flex-1">
@@ -223,6 +240,7 @@ const HomePage: React.FC = () => {
                 key={course.id}
                 course={course}
                 onDeleteRequest={(c: any) => setDeleteConfirm({ id: c.id, title: c.title })}
+                onEdit={(c: any) => navigate(`/create?editId=${c.id}`)}
                 labelContinue={t('home.continue')}
                 labelStart={t('home.start')}
                 t={t}

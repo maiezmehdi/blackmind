@@ -927,6 +927,47 @@ const CreatePage: React.FC<CreatePageProps> = () => {
     }
   }, [searchParams, courses]);
 
+  // Re-opening one of your own courses to keep editing it (not a fresh
+  // remix copy) — e.g. from the "Modifier" action on a "Your Creations" card.
+  const appliedEditIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const editId = searchParams.get('editId');
+    if (editId && editId !== appliedEditIdRef.current && courses.length > 0) {
+      const courseToEdit = courses.find(c => c.id === editId);
+      if (courseToEdit) {
+        appliedEditIdRef.current = editId;
+        setGeneratedCourse(courseToEdit);
+        setMessages(prev => [...prev, { role: 'assistant', content: t('create.editActivated', { title: courseToEdit.title }) }]);
+      }
+    }
+  }, [searchParams, courses]);
+
+  // The action menu (Publish/Share/Invite/Email/Download/Sell/Delete) only
+  // does anything meaningful while a course is loaded in generatedCourse —
+  // but that's plain component state, so it was silently lost on every
+  // reload of /create, leaving the menu visible but half-broken (some
+  // actions no-op, others open modals that then fail). Autosave already
+  // persists the in-progress course to `courses`; this restores it back
+  // into the editor on mount so the menu keeps working after a refresh.
+  const restoredActiveCourseRef = useRef(false);
+  useEffect(() => {
+    if (restoredActiveCourseRef.current) return;
+    if (generatedCourse || searchParams.get('remixId') || searchParams.get('editId') || searchParams.get('prompt')) {
+      restoredActiveCourseRef.current = true;
+      return;
+    }
+    const lastId = localStorage.getItem('blackmind_active_course_id');
+    if (lastId) {
+      const found = courses.find(c => c.id === lastId);
+      if (found) setGeneratedCourse(found);
+    }
+    restoredActiveCourseRef.current = true;
+  }, [courses, generatedCourse, searchParams]);
+
+  useEffect(() => {
+    if (generatedCourse) localStorage.setItem('blackmind_active_course_id', generatedCourse.id);
+  }, [generatedCourse]);
+
   // Pre-fill the prompt from the Home hero / discovery cards (?prompt=...)
   useEffect(() => {
     const initialPrompt = searchParams.get('prompt');
@@ -2179,7 +2220,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
       )}
 
       {/* SHARE MODAL */}
-      {isShareModalOpen && (
+      {isShareModalOpen && generatedCourse && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsShareModalOpen(false)}></div>
           <div className="relative w-full max-w-md bg-gemini-surface border border-gemini-border rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 p-8">
@@ -2615,6 +2656,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                     else if (type === 'course') {
                       deleteCourse(generatedCourse?.id || '');
                       setGeneratedCourse(null);
+                      localStorage.removeItem('blackmind_active_course_id');
                       setDeleteConfirm({ show: false, type: 'course', params: {} });
                       navigate('/');
                     }
