@@ -350,6 +350,260 @@ const AutoModeEmailCard: React.FC<{
   );
 };
 
+// Mode automatisé, façon Claude: opened by the very first prompt, BEFORE any
+// generation happens. Loops the model's own clarifying-question mechanism
+// (the same commentary/suggestions contract used everywhere else) as wizard
+// steps with Next, instead of chat bubbles — then an email step, then one
+// final "Accepter" that's the only point where real generation (and, if
+// requested, sending) actually happens.
+type WizardStep = 'loading' | 'question' | 'email-ask' | 'email-recipient' | 'confirm' | 'generating' | 'sending' | 'done' | 'cancelled';
+const AutoModeWizardCard: React.FC<{
+  initialTopic: string;
+  isThinkingMode: boolean;
+  contentLanguage: string;
+  contacts: { id: string; name: string; email: string; initials: string; color?: string }[];
+  t: (key: string, vars?: Record<string, any>) => string;
+  onComplete: (courseData: any, sourcePrompt: string) => void;
+}> = ({ initialTopic, isThinkingMode, contentLanguage, contacts, t, onComplete }) => {
+  const [step, setStep] = useState<WizardStep>('loading');
+  const [history, setHistory] = useState<ChatTurn[]>([]);
+  const [question, setQuestion] = useState<{ commentary: string; suggestions: string[] } | null>(null);
+  const [answer, setAnswer] = useState('');
+  const [courseData, setCourseData] = useState<any | null>(null);
+  const [wantsEmail, setWantsEmail] = useState(false);
+  const [recipient, setRecipient] = useState('');
+  const [note, setNote] = useState('');
+  const [sendResult, setSendResult] = useState<'sent' | 'mailto-fallback' | null>(null);
+  const startedRef = useRef(false);
+
+  const askAI = async (prompt: string, hist: ChatTurn[]) => {
+    setStep('loading');
+    try {
+      const response = await generateCourseStructure(prompt, hist, isThinkingMode, contentLanguage);
+      let data: any = null;
+      try { data = JSON.parse(extractJson(response)); } catch { data = null; }
+      const cd = data?.course || data;
+      if (!data || !cd || cd.title === 'Erreur' || !Array.isArray(cd.modules) || cd.modules.length === 0) {
+        setQuestion({ commentary: data?.commentary || t('create.generationError'), suggestions: data?.suggestions || [] });
+        setStep('question');
+      } else {
+        setCourseData(cd);
+        setStep('email-ask');
+      }
+    } catch {
+      setQuestion({ commentary: t('create.generationError'), suggestions: [] });
+      setStep('question');
+    }
+  };
+
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    askAI(initialTopic, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const advance = (value: string) => {
+    const v = value.trim();
+    if (!v) return;
+    const newHistory = [...history, { role: 'assistant' as const, content: question?.commentary || '' }, { role: 'user' as const, content: v }];
+    setHistory(newHistory);
+    setAnswer('');
+    askAI(v, newHistory);
+  };
+
+  const handleConfirm = async () => {
+    setStep('generating');
+    onComplete(courseData, initialTopic);
+    if (wantsEmail && recipient.trim()) {
+      setStep('sending');
+      const subject = t('create.emailSubject', { title: courseData.title });
+      const bodyLines = [note, '', t('create.emailBodyIntro', { title: courseData.title }), courseData.description || ''].filter(Boolean);
+      const text = bodyLines.join('\n');
+      try {
+        const res = await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: recipient.trim(), subject, text }),
+        });
+        if (res.ok) { setSendResult('sent'); setStep('done'); return; }
+      } catch {
+        // network error / API route unreachable — fall through to mailto below
+      }
+      const mailto = `mailto:${encodeURIComponent(recipient.trim())}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
+      window.location.href = mailto;
+      setSendResult('mailto-fallback');
+      setStep('done');
+    } else {
+      setStep('done');
+    }
+  };
+
+  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.trim());
+  const canCancel = step !== 'generating' && step !== 'sending' && step !== 'done';
+
+  return (
+    <div className="mt-3 max-w-md bg-gemini-surface border border-amber-500/20 rounded-[2rem] p-6 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-9 h-9 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+          <Zap size={16} />
+        </div>
+        <span className="text-[10px] font-black uppercase tracking-widest text-amber-500 flex-1">{t('create.autoModeLabel')}</span>
+        {canCancel && (
+          <button onClick={() => setStep('cancelled')} className="p-1 text-gemini-dim hover:text-gemini-text transition-colors">
+            <X size={14} />
+          </button>
+        )}
+      </div>
+
+      {step === 'loading' && (
+        <div className="flex items-center gap-3 text-sm text-gemini-dim py-2 animate-in fade-in duration-300">
+          <Loader2 size={16} className="animate-spin text-amber-500" /> {t('create.autoThinking')}
+        </div>
+      )}
+
+      {step === 'question' && question && (
+        <div className="space-y-4 animate-in fade-in duration-300">
+          <p className="text-sm font-bold text-gemini-text leading-relaxed">{question.commentary}</p>
+          {question.suggestions.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {question.suggestions.map((s, i) => (
+                <button
+                  key={i}
+                  onClick={() => advance(s)}
+                  className="px-3 py-2 rounded-2xl bg-gemini-bg border border-gemini-border text-xs font-medium text-gemini-dim hover:border-amber-500/40 hover:text-gemini-text transition-all text-left"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') advance(answer); }}
+              placeholder={t('create.autoWizardAnswerPlaceholder')}
+              className="flex-1 bg-gemini-bg border border-gemini-border rounded-2xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-all placeholder:text-gemini-dim/50 text-gemini-text"
+            />
+            <button
+              onClick={() => advance(answer)}
+              disabled={!answer.trim()}
+              className="px-5 py-3 bg-amber-500 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:scale-[1.02] transition-all shadow-lg disabled:opacity-40 disabled:hover:scale-100"
+            >
+              {t('create.autoNextBtn')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 'email-ask' && (
+        <div className="space-y-4 animate-in fade-in duration-300">
+          <p className="text-sm font-bold text-gemini-text leading-relaxed">{t('create.autoWizardEmailAsk')}</p>
+          <div className="flex gap-2">
+            <button onClick={() => { setWantsEmail(true); setStep('email-recipient'); }} className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:scale-[1.02] transition-all shadow-lg flex items-center justify-center gap-2">
+              <Mail size={14} /> {t('create.autoEmailYes')}
+            </button>
+            <button onClick={() => { setWantsEmail(false); setStep('confirm'); }} className="flex-1 px-4 py-3 border border-gemini-border rounded-2xl text-[10px] font-bold uppercase tracking-widest text-gemini-dim hover:text-gemini-text transition-all">
+              {t('create.autoEmailNo')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 'email-recipient' && (
+        <div className="space-y-4 animate-in fade-in duration-300">
+          <p className="text-sm font-bold text-gemini-text leading-relaxed">{t('create.autoRecipientQuestion')}</p>
+          {contacts.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {contacts.map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => setRecipient(c.email)}
+                  className={`px-3 py-1.5 rounded-full text-[10px] font-bold flex items-center gap-2 border transition-all ${recipient === c.email ? 'bg-amber-500 border-amber-500 text-white' : 'bg-gemini-bg border-gemini-border text-gemini-dim hover:border-amber-500/40 hover:text-gemini-text'}`}
+                >
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black ${c.color || 'bg-gemini-accent'} text-white`}>{c.initials}</span>
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          )}
+          <input
+            type="email"
+            value={recipient}
+            onChange={(e) => setRecipient(e.target.value)}
+            placeholder="ami@example.com"
+            className="w-full bg-gemini-bg border border-gemini-border rounded-2xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-all placeholder:text-gemini-dim/50 text-gemini-text"
+          />
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            placeholder={t('create.emailNotePlaceholder')}
+            className="w-full bg-gemini-bg border border-gemini-border rounded-2xl px-4 py-3 text-sm outline-none focus:border-amber-500 transition-all placeholder:text-gemini-dim/50 text-gemini-text resize-none"
+          />
+          <button
+            onClick={() => setStep('confirm')}
+            disabled={!isValidEmail}
+            className="w-full px-4 py-3 bg-amber-500 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:scale-[1.02] transition-all shadow-lg disabled:opacity-40 disabled:hover:scale-100"
+          >
+            {t('create.autoNextBtn')}
+          </button>
+        </div>
+      )}
+
+      {step === 'confirm' && courseData && (
+        <div className="space-y-4 animate-in fade-in duration-300">
+          <p className="text-sm font-bold text-gemini-text leading-relaxed">{t('create.autoConfirmTitle', { title: courseData.title })}</p>
+          {wantsEmail && recipient && (
+            <p className="text-xs text-gemini-dim">{t('create.autoRecipientQuestion')} <span className="text-gemini-text font-medium">{recipient}</span></p>
+          )}
+          <button onClick={handleConfirm} className="w-full px-4 py-3 bg-amber-500 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:scale-[1.02] transition-all shadow-lg flex items-center justify-center gap-2">
+            <CheckCircle2 size={14} /> {t('create.autoConfirmBtn')}
+          </button>
+        </div>
+      )}
+
+      {step === 'generating' && (
+        <div className="flex items-center gap-3 text-sm text-gemini-dim py-2 animate-in fade-in duration-300">
+          <Loader2 size={16} className="animate-spin text-amber-500" /> {t('create.autoGenerating')}
+        </div>
+      )}
+
+      {step === 'sending' && (
+        <div className="flex items-center gap-3 text-sm text-gemini-dim py-2 animate-in fade-in duration-300">
+          <Loader2 size={16} className="animate-spin text-amber-500" /> {t('create.autoSending')}
+        </div>
+      )}
+
+      {step === 'done' && (
+        <div className="space-y-2 animate-in fade-in duration-300">
+          <div className="flex items-center gap-3 text-sm font-bold text-gemini-text py-1">
+            <CheckCircle2 size={18} className="text-amber-500" /> {t('create.autoCourseReady')}
+          </div>
+          {sendResult === 'sent' && (
+            <div className="flex items-center gap-3 text-sm text-gemini-dim py-1">
+              <Mail size={16} className="text-amber-500" /> {t('create.emailSentSuccess')}
+            </div>
+          )}
+          {sendResult === 'mailto-fallback' && (
+            <div className="flex items-center gap-3 text-sm text-gemini-dim py-1">
+              <Mail size={16} className="text-amber-500" /> {t('create.autoMailtoFallback')}
+            </div>
+          )}
+        </div>
+      )}
+
+      {step === 'cancelled' && (
+        <div className="flex items-center gap-3 text-sm text-gemini-dim py-2 animate-in fade-in duration-300">
+          <X size={18} className="text-gemini-dim" /> {t('create.autoCancelled')}
+        </div>
+      )}
+    </div>
+  );
+};
+
 interface CreatePageProps {}
 
 // Replaces the Nth (0-based) occurrence of `search` in `source` — used instead
@@ -797,10 +1051,20 @@ const CreatePage: React.FC<CreatePageProps> = () => {
 
     setError(null);
     setMessages(prev => [...prev, { role: 'user', content: activePrompt, timestamp: new Date() }]);
+    if (!customPrompt) setPrompt('');
+
+    // Mode automatisé, nouvelle création (pas une édition d'un cours déjà
+    // ouvert) : au lieu de générer tout de suite, ouvrir l'assistant pas à
+    // pas (questions → email → confirmation) — il gère lui-même ses propres
+    // appels à l'IA et n'applique le cours qu'au clic final "Accepter".
+    if (isAutoMode && !isStorytellingMode && !generatedCourse) {
+      setMessages(prev => [...prev, { role: 'assistant', content: '', suggestions: ['__AUTO_MODE_WIZARD__'], autoModeWizard: { initialTopic: activePrompt }, timestamp: new Date() }]);
+      return;
+    }
+
     const courseBeingEdited = !isStorytellingMode && generatedCourse;
     setIsEditingCourse(!!courseBeingEdited);
     setIsGenerating(true);
-    if (!customPrompt) setPrompt('');
 
     try {
       if (isStorytellingMode) {
@@ -892,51 +1156,8 @@ const CreatePage: React.FC<CreatePageProps> = () => {
             setMessages(prev => [...prev, { role: 'assistant', content: '', suggestions: ['__AUTO_MODE_CARD__'], autoModeCourse: { title: updatedCourse.title, description: updatedCourse.description }, timestamp: new Date() }]);
           }
         } else {
-          const newCourse: Course = {
-            id: Math.random().toString(36).substr(2, 9),
-            ...courseData,
-            image: `https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=1200`,
-            progress: 0,
-            author: currentUser?.name || 'Anonyme',
-            category: courseData.category || 'Général',
-            collaborators: []
-          };
-
-          setGeneratedStory(null);
-          setGeneratedCourse(newCourse);
-          setIsPublished(false);
+          applyNewCourse(courseData, activePrompt);
           setMessages(prev => [...prev, { role: 'assistant', content: commentary, suggestions: [...(suggestions || []), "__ACTION_PREVIEW__"], timestamp: new Date() }]);
-
-          // Mode automatisé: once the course exists, proactively offer to
-          // send it — an inline step-by-step card (ask → pick recipient →
-          // confirm), not just a plain chat bubble with chips.
-          if (isAutoMode) {
-            setMessages(prev => [...prev, { role: 'assistant', content: '', suggestions: ['__AUTO_MODE_CARD__'], autoModeCourse: { title: newCourse.title, description: newCourse.description }, timestamp: new Date() }]);
-          }
-
-          // Generate the course cover right away from the generated content
-          // (async, non-blocking — the placeholder stays until the image lands).
-          // English, style-directed prompt → cleaner, well-composed covers from Flux.
-          const coverPrompt = `Modern minimalist online course cover about "${newCourse.title}". ${newCourse.description || activePrompt}. Professional editorial illustration, clean balanced composition, soft depth, cinematic lighting, high quality, no distorted objects.`;
-          setIsGeneratingCover(true);
-          const setCover = (src: string) =>
-            setGeneratedCourse(prev => (prev && prev.id === newCourse.id ? { ...prev, image: src } : prev));
-          const applyCover = (img: any) => {
-            if (typeof img === 'string' && img) {
-              // Verify the image (Gemini data URL or free Pollinations URL) really
-              // loads; fall back to a unique on-brand gradient if it doesn't.
-              const test = new Image();
-              test.onload = () => { setCover(img); setIsGeneratingCover(false); };
-              test.onerror = () => { setCover(makeGradientCover(newCourse.title)); setIsGeneratingCover(false); };
-              test.src = img;
-            } else {
-              setCover(makeGradientCover(newCourse.title));
-              setIsGeneratingCover(false);
-            }
-          };
-          generateAiBlock('image', coverPrompt, { aspectRatio: '16:9' })
-            .then(applyCover)
-            .catch(() => applyCover(null));
         }
       }
     } catch (err: any) {
@@ -945,6 +1166,60 @@ const CreatePage: React.FC<CreatePageProps> = () => {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  // Builds the Course object from raw AI course data, applies it to the
+  // canvas, and kicks off cover generation — shared by the normal
+  // generation flow and by the automated-mode wizard's final "Accepter".
+  const applyNewCourse = (courseData: any, sourcePrompt: string) => {
+    const newCourse: Course = {
+      id: Math.random().toString(36).substr(2, 9),
+      ...courseData,
+      image: `https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=1200`,
+      progress: 0,
+      author: currentUser?.name || 'Anonyme',
+      category: courseData.category || 'Général',
+      collaborators: []
+    };
+
+    setGeneratedStory(null);
+    setGeneratedCourse(newCourse);
+    setIsPublished(false);
+
+    // Generate the course cover right away from the generated content
+    // (async, non-blocking — the placeholder stays until the image lands).
+    // English, style-directed prompt → cleaner, well-composed covers from Flux.
+    const coverPrompt = `Modern minimalist online course cover about "${newCourse.title}". ${newCourse.description || sourcePrompt}. Professional editorial illustration, clean balanced composition, soft depth, cinematic lighting, high quality, no distorted objects.`;
+    setIsGeneratingCover(true);
+    const setCover = (src: string) =>
+      setGeneratedCourse(prev => (prev && prev.id === newCourse.id ? { ...prev, image: src } : prev));
+    const applyCover = (img: any) => {
+      if (typeof img === 'string' && img) {
+        // Verify the image (Gemini data URL or free Pollinations URL) really
+        // loads; fall back to a unique on-brand gradient if it doesn't.
+        const test = new Image();
+        test.onload = () => { setCover(img); setIsGeneratingCover(false); };
+        test.onerror = () => { setCover(makeGradientCover(newCourse.title)); setIsGeneratingCover(false); };
+        test.src = img;
+      } else {
+        setCover(makeGradientCover(newCourse.title));
+        setIsGeneratingCover(false);
+      }
+    };
+    generateAiBlock('image', coverPrompt, { aspectRatio: '16:9' })
+      .then(applyCover)
+      .catch(() => applyCover(null));
+
+    return newCourse;
+  };
+
+  // Mode automatisé's wizard finished (question rounds + optional email
+  // setup + final "Accepter"): apply the course it already generated during
+  // the Q&A, then push the same commentary + "Voir le résultat" chat message
+  // the normal flow shows.
+  const handleAutoWizardComplete = (courseData: any, sourcePrompt: string) => {
+    applyNewCourse(courseData, sourcePrompt);
+    setMessages(prev => [...prev, { role: 'assistant', content: t('create.architectureGenerated'), suggestions: ["__ACTION_PREVIEW__"], timestamp: new Date() }]);
   };
 
   const handleImportGDoc = async (doc: any) => {
@@ -2424,7 +2699,7 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                       )}
                    </div>
                    
-                   {/* Mode automatisé: a full inline card (question → recipient → confirm), not a chat bubble with chips. */}
+                   {/* Mode automatisé (édition d'un cours existant): simple ask-then-send card. */}
                    {m.role === 'assistant' && m.suggestions?.[0] === '__AUTO_MODE_CARD__' && !isGenerating && (
                      <AutoModeEmailCard
                        courseTitle={m.autoModeCourse?.title || ''}
@@ -2434,8 +2709,20 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                      />
                    )}
 
+                   {/* Mode automatisé (nouvelle création): full step-by-step wizard — questions → email → confirm — before any generation happens. */}
+                   {m.role === 'assistant' && m.suggestions?.[0] === '__AUTO_MODE_WIZARD__' && (
+                     <AutoModeWizardCard
+                       initialTopic={m.autoModeWizard?.initialTopic || ''}
+                       isThinkingMode={isThinkingMode}
+                       contentLanguage={contentLanguage}
+                       contacts={allSuggestedContacts}
+                       t={t}
+                       onComplete={handleAutoWizardComplete}
+                     />
+                   )}
+
                    {/* Contextual Suggestions Area */}
-                   {m.role === 'assistant' && m.suggestions && m.suggestions.length > 0 && m.suggestions[0] !== '__AUTO_MODE_CARD__' && !isGenerating && (
+                   {m.role === 'assistant' && m.suggestions && m.suggestions.length > 0 && m.suggestions[0] !== '__AUTO_MODE_CARD__' && m.suggestions[0] !== '__AUTO_MODE_WIZARD__' && !isGenerating && (
                      <div className="flex flex-wrap gap-2 mt-3 px-1 animate-in fade-in slide-in-from-bottom-2 duration-500">
                         {m.suggestions.map((suggestion: string, sIdx: number) => {
                           if (suggestion === '__ACTION_PREVIEW__') {
