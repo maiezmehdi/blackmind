@@ -345,6 +345,7 @@
     "voiceUnsupported": "La saisie vocale n'est pas disponible dans ce navigateur. Essaie avec Chrome ou Edge.",
     "listening": "Écoute en cours… parlez",
     "downloadImage": "Télécharger l'image",
+    "uploadImage": "Importer une image",
     "openExternal": "Ouvrir sur YouTube",
     "videoSearchFallback": "Aucune vidéo intégrée automatiquement (ajoute une clé YouTube gratuite pour ça). Tu peux chercher une vidéo pertinente en un clic.",
     "searchYoutube": "Rechercher sur YouTube",

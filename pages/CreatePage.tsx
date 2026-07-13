@@ -724,6 +724,18 @@ const blobToBase64 = (blob: Blob): Promise<string> =>
     reader.readAsDataURL(blob);
   });
 
+// User-uploaded cover/block images — kept as a self-contained data: URL
+// (not URL.createObjectURL), same reasoning as elsewhere in this file:
+// courses persist block/image values as plain strings in localStorage, and
+// a blob: URL goes dead the moment the page reloads.
+const fileToDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('failed to read file'));
+    reader.readAsDataURL(file);
+  });
+
 // Every keystroke of unrelated canvas UI state (toolbar position, selection
 // context, hover menus...) re-renders the whole CreatePage tree. Without
 // memoization, React re-sets this div's innerHTML on every one of those
@@ -888,6 +900,9 @@ const CreatePage: React.FC<CreatePageProps> = () => {
   const refinementDropdownRef = useRef<HTMLDivElement>(null);
   const chatOptionsRef = useRef<HTMLDivElement>(null);
   const promptTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
+  const blockFileInputRef = useRef<{ modId: string; lesId: string; blockId: string } | null>(null);
+  const blockFileInputElRef = useRef<HTMLInputElement>(null);
 
   // Mock Google Drive Documents
   const mockGDocs = [
@@ -3135,10 +3150,44 @@ const CreatePage: React.FC<CreatePageProps> = () => {
              <div className="max-w-3xl mx-auto space-y-12 pb-32 animate-in fade-in duration-700">
                <div className="relative group rounded-[3rem] overflow-hidden aspect-video shadow-2xl border border-gemini-border">
                  <img src={generatedCourse.image} alt="Cover" className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
-                 <div className={`absolute inset-0 bg-black/20 flex items-center justify-center transition-all ${isPreviewMode ? 'hidden' : 'opacity-0 group-hover:opacity-100'}`}>
+                 <div className={`absolute inset-0 bg-black/20 flex items-center justify-center gap-3 transition-all ${isPreviewMode ? 'hidden' : 'opacity-0 group-hover:opacity-100'}`}>
                    <button onClick={() => openAiModal({ action: "generate-cover", targetType: "cover", title: t('create.regenerateCover'), placeholder: t('create.coverLabel') })} className="bg-gemini-accent text-gemini-bg px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-2 shadow-lg">
                       <ImageIcon size={14} /> Nano Banana
                    </button>
+                   <button onClick={() => coverFileInputRef.current?.click()} className="bg-gemini-surface text-gemini-text px-6 py-3 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-2 shadow-lg border border-gemini-border">
+                      <Upload size={14} /> {t('create.uploadImage')}
+                   </button>
+                   <input
+                     ref={coverFileInputRef}
+                     type="file"
+                     accept="image/*"
+                     className="hidden"
+                     onChange={async (e) => {
+                       const file = e.target.files?.[0];
+                       e.target.value = '';
+                       if (!file || !generatedCourse) return;
+                       const dataUrl = await fileToDataUrl(file);
+                       setGeneratedCourse(prev => prev ? { ...prev, image: dataUrl } : prev);
+                     }}
+                   />
+                   {/* Shared hidden input for uploading a replacement image into
+                       any in-lesson image block — which block it targets is set
+                       via blockFileInputRef.current right before .click(). */}
+                   <input
+                     ref={blockFileInputElRef}
+                     type="file"
+                     accept="image/*"
+                     className="hidden"
+                     onChange={async (e) => {
+                       const file = e.target.files?.[0];
+                       e.target.value = '';
+                       const target = blockFileInputRef.current;
+                       blockFileInputRef.current = null;
+                       if (!file || !target) return;
+                       const dataUrl = await fileToDataUrl(file);
+                       updateBlockValue(target.modId, target.lesId, target.blockId, dataUrl);
+                     }}
+                   />
                  </div>
                  {!isPreviewMode && (
                    <button
@@ -3303,7 +3352,10 @@ const CreatePage: React.FC<CreatePageProps> = () => {
                                           <div className={`absolute -top-4 right-4 flex gap-1 transition-opacity bg-gemini-surface border border-gemini-border rounded-lg shadow-lg p-1 z-[100] ${isPreviewMode ? 'hidden' : 'opacity-0 group-hover/block:opacity-100'}`}>
                                             <button onClick={() => openAiModal({ action: 'refine-regenerate', modId: mod.id, lesId: lesson.id, blockId: block.id, title: t('create.improveWithAiTitle'), placeholder: t('create.improveModalPlaceholder') })} className="p-1.5 hover:bg-gemini-bg rounded text-gemini-dim hover:text-gemini-accent" title={t('create.improveWithAiTitle')}><Sparkles size={14}/></button>
                                             {block.type === 'image' && (
-                                              <button onClick={() => downloadMedia(block.value, mediaFilename(`${lesson.title}-${bIdx + 1}`, 'jpg'))} className="p-1.5 hover:bg-gemini-bg rounded text-gemini-dim hover:text-gemini-accent" title={t('create.downloadImage')}><Download size={14}/></button>
+                                              <>
+                                                <button onClick={() => { blockFileInputRef.current = { modId: mod.id, lesId: lesson.id, blockId: block.id }; blockFileInputElRef.current?.click(); }} className="p-1.5 hover:bg-gemini-bg rounded text-gemini-dim hover:text-gemini-accent" title={t('create.uploadImage')}><Upload size={14}/></button>
+                                                <button onClick={() => downloadMedia(block.value, mediaFilename(`${lesson.title}-${bIdx + 1}`, 'jpg'))} className="p-1.5 hover:bg-gemini-bg rounded text-gemini-dim hover:text-gemini-accent" title={t('create.downloadImage')}><Download size={14}/></button>
+                                              </>
                                             )}
                                             {block.type === 'video' && (
                                               <a

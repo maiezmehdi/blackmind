@@ -324,6 +324,7 @@
     "voiceUnsupported": "Voice input isn't available in this browser. Try Chrome or Edge.",
     "listening": "Listening… speak now",
     "downloadImage": "Download image",
+    "uploadImage": "Upload image",
     "openExternal": "Open on YouTube",
     "videoSearchFallback": "No video was auto-embedded (add a free YouTube key to enable that). You can search for a relevant video in one click.",
     "searchYoutube": "Search on YouTube",
