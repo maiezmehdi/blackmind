@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Sparkles, TrendingUp, Book, Brain, Code, Palette, Globe, Trash2, AlertCircle, Pencil } from 'lucide-react';
+import { Search, Sparkles, TrendingUp, Book, Brain, Code, Palette, Globe, Trash2, AlertCircle, Pencil, ShieldCheck } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCourseContext } from '../store/useCourseStore';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -123,6 +123,18 @@ const HomePage: React.FC = () => {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [heroPrompt, setHeroPrompt] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
+
+  // Shown once ever on first landing, then never again — a plain notice,
+  // not a fake toggle-based consent panel: this app has no ad/analytics
+  // trackers to actually gate, so granular switches would just be cosmetic.
+  const [showPrivacyPanel, setShowPrivacyPanel] = useState(false);
+  useEffect(() => {
+    if (!localStorage.getItem('blackmind_privacy_ack')) setShowPrivacyPanel(true);
+  }, []);
+  const dismissPrivacyPanel = () => {
+    localStorage.setItem('blackmind_privacy_ack', '1');
+    setShowPrivacyPanel(false);
+  };
 
   // Marketplace-catalog cards (AI Suggestions / Popular) reference ids that
   // only exist in marketplaceCourses — LearnPage only looks courses up in
@@ -361,6 +373,34 @@ const HomePage: React.FC = () => {
                   {t('common.confirm')}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPrivacyPanel && (
+        <div className="fixed inset-0 z-[260] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300"></div>
+          <div className="relative w-full max-w-md bg-gemini-surface border border-gemini-border rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-10 space-y-6">
+              <div className="w-16 h-16 bg-gemini-accent/10 text-gemini-accent rounded-2xl flex items-center justify-center border border-gemini-accent/20">
+                <ShieldCheck size={28} />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-2xl font-bold font-outfit text-gemini-text">{t('home.privacyTitle')}</h3>
+                <p className="text-sm text-gemini-dim leading-relaxed">{t('home.privacyIntro')}</p>
+              </div>
+              <ul className="space-y-3 text-sm text-gemini-text/90">
+                <li className="flex gap-3"><span className="text-gemini-accent shrink-0">•</span>{t('home.privacyPoint1')}</li>
+                <li className="flex gap-3"><span className="text-gemini-accent shrink-0">•</span>{t('home.privacyPoint2')}</li>
+                <li className="flex gap-3"><span className="text-gemini-accent shrink-0">•</span>{t('home.privacyPoint3')}</li>
+              </ul>
+              <button
+                onClick={dismissPrivacyPanel}
+                className="w-full px-6 py-4 bg-gemini-accent text-gemini-bg rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:scale-[1.02] transition-all shadow-lg"
+              >
+                {t('home.privacyAck')}
+              </button>
             </div>
           </div>
         </div>

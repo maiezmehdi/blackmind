@@ -81,6 +81,12 @@
     "emptyTitle": "No courses yet",
     "emptyDesc": "Get started: describe a topic and let the AI build your first course.",
     "emptyCta": "Create my first course",
+    "privacyTitle": "Your Privacy, By Design",
+    "privacyIntro": "Here's simply what Blackmind does with your data:",
+    "privacyPoint1": "Your courses and preferences are stored locally in your browser — not on our servers.",
+    "privacyPoint2": "Generating a course sends your text to an AI provider (Google Gemini, with a fallback service) to produce the content.",
+    "privacyPoint3": "An email is only sent when you explicitly ask for it (e.g. sharing a course) — never automatically.",
+    "privacyAck": "Got it",
     "heroTitle": "Turn your expertise into content that",
     "heroHighlight": "captivates.",
     "finished": "Finished"

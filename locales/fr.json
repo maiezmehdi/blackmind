@@ -94,7 +94,13 @@
     "suggestPrefill": "Crée un cours complet et structuré sur : {title}",
     "emptyTitle": "Aucun cours pour le moment",
     "emptyDesc": "Lancez-vous : décrivez un sujet et laissez l'IA construire votre premier cours.",
-    "emptyCta": "Créer mon premier cours"
+    "emptyCta": "Créer mon premier cours",
+    "privacyTitle": "Ta vie privée, par conception",
+    "privacyIntro": "Voici, simplement, ce que Blackmind fait de tes données :",
+    "privacyPoint1": "Tes cours et préférences sont stockés localement dans ton navigateur — pas sur nos serveurs.",
+    "privacyPoint2": "Générer un cours envoie ton texte à un fournisseur d'IA (Google Gemini, avec un service de secours) pour produire le contenu.",
+    "privacyPoint3": "Un email n'est envoyé que si tu le demandes explicitement (par exemple pour partager un cours) — jamais automatiquement.",
+    "privacyAck": "J'ai compris"
   },
   "progress": {
     "title": "Progression",
