@@ -68,7 +68,7 @@ const DEFAULT_USER: UserProfile = {
   name: 'John Doe',
   initials: 'JD',
   color: 'bg-neutral-800',
-  email: 'john.doe@blackmind.ai',
+  email: 'maiezmehdi.sky@gmail.com',
   avatar: undefined,
   subscription: 'free'
 };
